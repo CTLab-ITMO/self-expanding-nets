@@ -9,7 +9,7 @@ def train_one_model(model, train_loader, valid_loader, device, epochs=10000,
                     patience=10, min_delta=1e-4, criterion=torch.nn.L1Loss(),
                     lr=3e-4, optimizer=None):
     if not optimizer:
-        optimizer = torch.optim.SGD(model.parameters(), lr=lr)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     best_loss = float('inf')
     epochs_no_improve = 0
     val_losses = []
