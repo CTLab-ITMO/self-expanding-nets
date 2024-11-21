@@ -46,4 +46,13 @@ def inference_time_over_params(model: nn.Module,
                                device: torch.device) -> float:
     n_params = get_number_of_params(model)
     inference_time = get_avg_inference_time(model, dataloader, device)
-    return inference_time * 1000 / n_params
+    return inference_time / n_params
+
+
+def inference_time_over_added_params(new_model: nn.Module, 
+                                     old_model: nn.Module,
+                                     dataloader: torch.utils.data.DataLoader, 
+                                     device: torch.device) -> float:
+    n_params = get_number_of_params(new_model) - get_number_of_params(old_model)
+    inference_time = get_avg_inference_time(new_model, dataloader, device)
+    return inference_time / n_params
