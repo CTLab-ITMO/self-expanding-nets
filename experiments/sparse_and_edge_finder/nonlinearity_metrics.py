@@ -21,7 +21,7 @@ class GradientMeanEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        last_layer = model.sparse_linear
+        last_layer = model
 
         # Градиенты для разреженных весов
         edge_gradients = last_layer.weight_values.grad.abs()
@@ -41,7 +41,7 @@ class PerturbationSensitivityEdgeMetric(NonlinearityMetric):
         # Оригинальный вывод модели
         original_output = model(X_arr).detach()
 
-        last_layer = model.sparse_linear
+        last_layer = model
         sensitivities = torch.zeros_like(last_layer.weight_values)
 
         # Возмущение каждого веса

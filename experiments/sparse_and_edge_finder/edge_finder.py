@@ -28,6 +28,6 @@ class EdgeFinder:
         sorted_indices = torch.argsort(avg_metric, descending=True)
 
         # Возвращаем топ k индексов из last_layer.weight_indices
-        top_k_indices = model.sparse_linear.weight_indices[:, sorted_indices[:top_k]]
+        top_k_indices = model.weight_indices[:, sorted_indices[:top_k]]
 
         return top_k_indices
