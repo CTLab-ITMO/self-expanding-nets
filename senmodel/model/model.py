@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 
 
-
 class EmbedLinear(nn.Module):
     def __init__(self, weight_size):
         super(EmbedLinear, self).__init__()
@@ -14,7 +13,11 @@ class EmbedLinear(nn.Module):
     def replace(self, child, parent, iteration=None):
         new_edge = torch.tensor([[self.child_counter, parent]], dtype=torch.long).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
-        self.weight_values.data = torch.cat([self.weight_values, torch.rand(1)])  # todo: fix torch.rand(1)
+
+        new_weight = torch.empty(1)
+        nn.init.kaiming_uniform_(new_weight)
+
+        self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
         self.weight_size[0] += 1
         self.child_counter += 1
 
@@ -56,7 +59,10 @@ class ExpandingLinear(nn.Module):
         new_edge = torch.tensor([[child, max_parent]], dtype=torch.long).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
-        self.weight_values.data = torch.cat([self.weight_values.data, torch.rand(1)])
+        new_weight = torch.empty(1)
+        nn.init.kaiming_uniform_(new_weight)
+
+        self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
         self.weight_size[1] += 1
         self.embed_linears[iteration].replace(child, parent)
