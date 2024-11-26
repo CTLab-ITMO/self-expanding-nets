@@ -1,0 +1,16 @@
+[build-system]
+requires = ['setuptools >= 61.0.0', 'wheel']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'senmodel'
+version = '1.0.0'
+authors = []
+description = 'self-expanding-nets'
+readme = 'README.md'
+requires-python = '>= 3.12'
+dependencies = [
+    'torch', ]
+
+[tool.setuptools.packages]
+find = { }

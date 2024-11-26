@@ -1,6 +1,6 @@
 import torch
 
-from nonlinearity_metrics import NonlinearityMetric
+from .nonlinearity_metrics import NonlinearityMetric
 
 
 class EdgeFinder:
