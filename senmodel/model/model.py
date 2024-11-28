@@ -15,7 +15,7 @@ class EmbedLinear(nn.Module):
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
         new_weight = torch.empty(1)
-        nn.init.kaiming_uniform_(new_weight)
+        nn.init.uniform_(new_weight)
 
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
         self.weight_size[0] += 1
@@ -60,7 +60,7 @@ class ExpandingLinear(nn.Module):
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
         new_weight = torch.empty(1)
-        nn.init.kaiming_uniform_(new_weight)
+        nn.init.uniform_(new_weight)
 
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
