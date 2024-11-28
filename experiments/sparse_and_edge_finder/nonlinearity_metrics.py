@@ -21,7 +21,7 @@ class GradientMeanEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        last_layer = model
+        last_layer = list(model.children())[-1]
 
         # Градиенты для разреженных весов
         edge_gradients = last_layer.weight_values.grad.abs()
