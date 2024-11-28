@@ -7,6 +7,7 @@ class EmbedLinear(nn.Module):
         self.weight_indeces = torch.empty(2, 0, dtype=torch.int)
         self.weight_values = nn.Parameter(torch.empty(0))
         self.weight_size = torch.tensor([0, weight_size])
+        self.relu = nn.ReLU()
 
         self.child_counter = 0
 
@@ -28,12 +29,9 @@ class EmbedLinear(nn.Module):
             list(self.weight_size)
         )
         # pass thourgh self weight
-        print("input", input.shape)
-        print("embed", sparse_embed_weight.shape)
-        print(sparse_embed_weight)
         output = torch.sparse.mm(sparse_embed_weight, input.t()).t()
         # concat output of embed weight and input
-        input = torch.cat([input, output], dim=1)
+        input = torch.cat([input, self.relu(output)], dim=1)
 
         return input
     
