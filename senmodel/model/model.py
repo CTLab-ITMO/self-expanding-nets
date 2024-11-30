@@ -32,9 +32,10 @@ class SparseModule(ABC, nn.Module):
 
 
 class EmbedLinear(SparseModule):
-    def __init__(self, weight_size):
+    def __init__(self, weight_size, activation=nn.ReLU()):
         super(EmbedLinear, self).__init__([0, weight_size])
         self.child_counter = 0
+        self.activation = activation
 
     def replace(self, child, parent, iteration=None):
         self.add_edge(self.child_counter, parent)
@@ -44,7 +45,7 @@ class EmbedLinear(SparseModule):
     def forward(self, input):
         sparse_embed_weight = self.create_sparse_tensor()
         output = torch.sparse.mm(sparse_embed_weight, input.t()).t()
-        return torch.cat([input, output], dim=1)
+        return torch.cat([input, self.activation(output)], dim=1)
 
 
 class ExpandingLinear(SparseModule):
