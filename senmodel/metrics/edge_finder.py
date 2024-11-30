@@ -1,6 +1,7 @@
 import torch
 
 from .nonlinearity_metrics import NonlinearityMetric
+from ..model.utils import get_model_last_layer
 
 
 class EdgeFinder:
@@ -26,16 +27,19 @@ class EdgeFinder:
     def choose_edges_top_k(self, model, top_k: int):
         avg_metric = self.calculate_edge_metric_for_dataloader(model)
         sorted_indices = torch.argsort(avg_metric, descending=True)
-        return model.weight_indices[:, sorted_indices[:top_k]]
+        last_layer = get_model_last_layer(model)
+        return last_layer.weight_indices[:, sorted_indices[:top_k]]
 
     def choose_edges_top_percent(self, model, percent: float):
-        percent = min(max(percent, 0.0), 1.0) # percent in [0, 1]
+        percent = min(max(percent, 0.0), 1.0)  # percent in [0, 1]
         avg_metric = self.calculate_edge_metric_for_dataloader(model)
         k = int(percent * avg_metric.numel())
         sorted_indices = torch.argsort(avg_metric, descending=True)
-        return model.weight_indices[:, sorted_indices[:k]]
+        last_layer = get_model_last_layer(model)
+        return last_layer.weight_indices[:, sorted_indices[:k]]
 
     def choose_edges_threshold(self, model, threshold):
         avg_metric = self.calculate_edge_metric_for_dataloader(model)
         mask = avg_metric > threshold
-        return model.weight_indices[:, mask.nonzero(as_tuple=True)[0]]
+        last_layer = get_model_last_layer(model)
+        return last_layer.weight_indices[:, mask.nonzero(as_tuple=True)[0]]

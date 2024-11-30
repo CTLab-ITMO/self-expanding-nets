@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .model import ExpandingLinear
+from .model import ExpandingLinear, SparseModule
 
 
 def dense_to_sparse(dense_tensor: torch.Tensor) -> torch.Tensor:
@@ -37,3 +37,7 @@ def convert_dense_to_sparse_network(model: nn.Module) -> nn.Module:
         else:
             setattr(new_model, name, convert_dense_to_sparse_network(module))
     return new_model
+
+
+def get_model_last_layer(model):
+    return model if isinstance(model, SparseModule) else list(model.children())[-1]
