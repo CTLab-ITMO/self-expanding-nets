@@ -1,26 +1,26 @@
 from abc import abstractmethod, ABC
-
 import torch
 from torch import nn
 
 
 class SparseModule(ABC, nn.Module):
-    def __init__(self, weight_size):
+    def __init__(self, weight_size, device='cpu'):
         super(SparseModule, self).__init__()
-        self.weight_indices = torch.empty(2, 0, dtype=torch.long)
-        self.weight_values = nn.Parameter(torch.empty(0))
+        self.weight_indices = torch.empty(2, 0, dtype=torch.long, device=device)
+        self.weight_values = nn.Parameter(torch.empty(0, device=device))
         self.weight_size = list(weight_size)
+        self.device = device
 
     def add_edge(self, child, parent):
-        new_edge = torch.tensor([[child, parent]], dtype=torch.long).t()
+        new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
-        new_weight = torch.empty(1)
+        new_weight = torch.empty(1, device=self.device)
         nn.init.uniform_(new_weight)
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
     def create_sparse_tensor(self):
-        return torch.sparse_coo_tensor(self.weight_indices, self.weight_values, self.weight_size)
+        return torch.sparse_coo_tensor(self.weight_indices, self.weight_values, self.weight_size, device=self.device)
 
     @abstractmethod
     def replace(self, child, parent, iteration):
@@ -32,10 +32,11 @@ class SparseModule(ABC, nn.Module):
 
 
 class EmbedLinear(SparseModule):
-    def __init__(self, weight_size, activation=nn.ReLU()):
-        super(EmbedLinear, self).__init__([0, weight_size])
+    def __init__(self, weight_size, activation=nn.ReLU(), device='cpu'):
+        super(EmbedLinear, self).__init__([0, weight_size], device=device)
         self.child_counter = 0
         self.activation = activation
+        self.device = device
 
     def replace(self, child, parent, iteration=None):
         self.add_edge(self.child_counter, parent)
@@ -49,24 +50,27 @@ class EmbedLinear(SparseModule):
 
 
 class ExpandingLinear(SparseModule):
-    def __init__(self, weight: torch.sparse_coo_tensor, bias: torch.sparse_coo_tensor):
-        super(ExpandingLinear, self).__init__(weight.size())
+    def __init__(self, weight: torch.sparse_coo_tensor, bias: torch.sparse_coo_tensor, device='cpu'):
+        super(ExpandingLinear, self).__init__(weight.size(), device=device)
 
-        self.weight_indices = weight.coalesce().indices()
-        self.weight_values = nn.Parameter(weight.coalesce().values())
+        weight = weight.coalesce()
+        self.weight_indices = weight.indices().to(device)
+        self.weight_values = nn.Parameter(weight.values().to(device))
 
         self.embed_linears = []
 
-        self.bias_indices = bias.coalesce().indices()
-        self.bias_values = nn.Parameter(bias.coalesce().values())
-        self.bias_size = list(bias.coalesce().size())
+        bias = bias.coalesce()
+        self.bias_indices = bias.indices().to(device)
+        self.bias_values = nn.Parameter(bias.values().to(device))
+        self.bias_size = list(bias.size())
 
         self.last_iteration = -1
+        self.device = device
 
     def replace(self, child, parent, iteration):
         if iteration > self.last_iteration:
             self.last_iteration = iteration
-            self.embed_linears.append(EmbedLinear(self.weight_size[1]))
+            self.embed_linears.append(EmbedLinear(self.weight_size[1], device=self.device))
 
         matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
 
@@ -84,7 +88,7 @@ class ExpandingLinear(SparseModule):
             input = self.embed_linears[i](input)
 
         sparse_weight = self.create_sparse_tensor()
-        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, self.bias_values, self.bias_size).to_dense()
+        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, self.bias_values, self.bias_size, device=self.device).to_dense()
 
         output = torch.sparse.mm(sparse_weight, input.t()).t()
         output += sparse_bias.unsqueeze(0)
