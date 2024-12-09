@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABC
+
 import torch
 from torch import nn
 
@@ -23,13 +24,12 @@ class SparseModule(ABC, nn.Module):
         return torch.sparse_coo_tensor(self.weight_indices, self.weight_values, self.weight_size, device=self.device)
 
     @abstractmethod
-    def replace(self, child, parent, iteration):
+    def replace(self, child, parent):
         pass
 
-    def replace_many(self, children, parents, iteration=None):
-        assert len(children) != 0 or len(parents) != 0, "list of chosen edges mustn't be empty"
+    def replace_many(self, children, parents):
         for c, p in zip(children, parents):
-            self.replace(c, p, iteration)
+            self.replace(c, p)
 
 
 class EmbedLinear(SparseModule):
@@ -39,7 +39,7 @@ class EmbedLinear(SparseModule):
         self.activation = activation
         self.device = device
 
-    def replace(self, child, parent, iteration=None):
+    def replace(self, child, parent):
         self.add_edge(self.child_counter, parent)
         self.weight_size[0] += 1
         self.child_counter += 1
@@ -65,12 +65,14 @@ class ExpandingLinear(SparseModule):
         self.bias_values = nn.Parameter(bias.values().to(device))
         self.bias_size = list(bias.size())
 
-        self.last_iteration = -1
+        self.current_iteration = -1
         self.device = device
 
-    def replace(self, child, parent, iteration):
-        if iteration > self.last_iteration:
-            self.last_iteration = iteration
+    def replace(self, child, parent):
+        if self.current_iteration == -1:
+            self.current_iteration = 0
+
+        if len(self.embed_linears) <= self.current_iteration:
             self.embed_linears.append(EmbedLinear(self.weight_size[1], device=self.device))
 
         matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
@@ -82,14 +84,19 @@ class ExpandingLinear(SparseModule):
         self.add_edge(child, max_parent)
 
         self.weight_size[1] += 1
-        self.embed_linears[iteration].replace(child, parent)
+        self.embed_linears[self.current_iteration].replace(child, parent)
+
+    def replace_many(self, children, parents):
+        self.current_iteration += (len(children) != 0 and len(parents) != 0)
+        super().replace_many(children, parents)
 
     def forward(self, input):
-        for i in range(self.last_iteration + 1):
-            input = self.embed_linears[i](input)
+        for embed_linear in self.embed_linears:
+            input = embed_linear(input)
 
         sparse_weight = self.create_sparse_tensor()
-        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, self.bias_values, self.bias_size, device=self.device).to_dense()
+        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, self.bias_values, self.bias_size,
+                                              device=self.device).to_dense()
 
         output = torch.sparse.mm(sparse_weight, input.t()).t()
         output += sparse_bias.unsqueeze(0)
