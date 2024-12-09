@@ -27,6 +27,7 @@ class SparseModule(ABC, nn.Module):
         pass
 
     def replace_many(self, children, parents, iteration=None):
+        assert len(children) != 0 or len(parents) != 0, "list of chosen edges mustn't be empty"
         for c, p in zip(children, parents):
             self.replace(c, p, iteration)
 
