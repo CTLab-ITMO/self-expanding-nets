@@ -29,7 +29,11 @@ class GradientMeanEdgeMetric(NonlinearityMetric):
         # Градиенты для разреженных весов
         edge_gradients = last_layer.weight_values.grad.abs()
         model.zero_grad()
-        return edge_gradients
+
+        min_val, max_val = edge_gradients.min(), edge_gradients.max()
+        normalized_gradients = (edge_gradients - min_val) / (max_val - min_val + 1e-8)
+
+        return normalized_gradients
 
 
 # Метрика 3: Чувствительность к возмущению для каждого ребра
@@ -61,4 +65,7 @@ class PerturbationSensitivityEdgeMetric(NonlinearityMetric):
                 # Восстановление оригинального значения
                 last_layer.weight_values[idx] = original_value
 
-        return sensitivities
+        min_val, max_val = sensitivities.min(), sensitivities.max()
+        normalized_sensitivities = (sensitivities - min_val) / (max_val - min_val + 1e-8)
+
+        return normalized_sensitivities
