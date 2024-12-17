@@ -10,7 +10,7 @@ description = 'self-expanding-nets'
 readme = 'README.md'
 requires-python = '>= 3.10'
 dependencies = [
-    'torch', 'torchvision']
+    'torch', 'torchvision', 'pandas']
 
 [tool.setuptools.packages]
 find = { }
