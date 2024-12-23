@@ -12,11 +12,12 @@ class SparseModule(ABC, nn.Module):
         self.weight_size = list(weight_size)
         self.device = device
 
-    def add_edge(self, child, parent):
+    def add_edge(self, child, parent, n_input):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
         new_weight = torch.empty(1, device=self.device)
+        # nn.init.uniform_(new_weight, b=torch.sqrt(torch.tensor(2/n_input)))
         nn.init.uniform_(new_weight)
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
@@ -29,7 +30,7 @@ class SparseModule(ABC, nn.Module):
 
     def replace_many(self, children, parents):
         for c, p in zip(children, parents):
-            self.replace(c, p)
+            self.replace(c, p, len(set(parents.tolist())), len(set(children.tolist())))
 
 
 class EmbedLinear(SparseModule):
@@ -39,8 +40,9 @@ class EmbedLinear(SparseModule):
         self.activation = activation
         self.device = device
 
-    def replace(self, child, parent):
-        self.add_edge(self.child_counter, parent)
+    def replace(self, child, parent, n_input, n_output):
+        print('replace in embed n_input:', n_input)
+        self.add_edge(self.child_counter, parent, 28*28)
         self.weight_size[0] += 1
         self.child_counter += 1
 
@@ -68,7 +70,7 @@ class ExpandingLinear(SparseModule):
         self.current_iteration = -1
         self.device = device
 
-    def replace(self, child, parent):
+    def replace(self, child, parent, n_input, n_output):
         if self.current_iteration == -1:
             self.current_iteration = 0
 
@@ -81,10 +83,11 @@ class ExpandingLinear(SparseModule):
         self.weight_values = nn.Parameter(self.weight_values[~matches])
 
         max_parent = self.weight_indices[1].max().item() + 1
-        self.add_edge(child, max_parent)
+        print('replace in main n_input:', 784)
+        self.add_edge(child, max_parent, 28*28)
 
         self.weight_size[1] += 1
-        self.embed_linears[self.current_iteration].replace(child, parent)
+        self.embed_linears[self.current_iteration].replace(child, parent, n_input, n_output)
 
     def replace_many(self, children, parents):
         self.current_iteration += (len(children) != 0 and len(parents) != 0)
