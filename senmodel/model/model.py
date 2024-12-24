@@ -77,10 +77,13 @@ class ExpandingLinear(SparseModule):
 
         matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
 
+        assert torch.any(matches), "Edge must extist"
+
+        max_parent = self.weight_indices[1].max().item() + 1 # before deleting edge
+
         self.weight_indices = self.weight_indices[:, ~matches]
         self.weight_values = nn.Parameter(self.weight_values[~matches])
 
-        max_parent = self.weight_indices[1].max().item() + 1
         self.add_edge(child, max_parent)
 
         self.weight_size[1] += 1
