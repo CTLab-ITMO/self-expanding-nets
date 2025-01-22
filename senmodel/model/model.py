@@ -79,7 +79,7 @@ class ExpandingLinear(SparseModule):
 
         assert torch.any(matches), "Edge must extist"
 
-        max_parent = self.weight_indices[1].max().item() + 1 # before deleting edge
+        max_parent = self.weight_indices[1].max().item() + 1  # before deleting edge
 
         self.weight_indices = self.weight_indices[:, ~matches]
         self.weight_values = nn.Parameter(self.weight_values[~matches])
@@ -94,13 +94,22 @@ class ExpandingLinear(SparseModule):
         super().replace_many(children, parents)
 
     def forward(self, input):
+        # Применяем все EmbedLinear слои
         for embed_linear in self.embed_linears:
             input = embed_linear(input)
 
-        sparse_weight = self.create_sparse_tensor()
-        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, self.bias_values, self.bias_size,
+        # Создаём разреженную матрицу весов с учётом маски
+        masked_weight_values = self.weight_values * self.weight_mask if hasattr(self,
+                                                                                'weight_mask') else self.weight_values
+        sparse_weight = torch.sparse_coo_tensor(self.weight_indices, masked_weight_values, self.weight_size,
+                                                device=self.device)
+
+        # Применяем маску к смещениям (bias), если она есть
+        masked_bias_values = self.bias_values * self.bias_mask if hasattr(self, 'bias_mask') else self.bias_values
+        sparse_bias = torch.sparse_coo_tensor(self.bias_indices, masked_bias_values, self.bias_size,
                                               device=self.device).to_dense()
 
+        # Вычисляем линейное преобразование
         output = torch.sparse.mm(sparse_weight, input.t()).t()
         output += sparse_bias.unsqueeze(0)
 

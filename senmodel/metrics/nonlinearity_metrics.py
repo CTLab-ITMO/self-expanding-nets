@@ -1,8 +1,11 @@
+import copy
 from abc import abstractmethod, ABC
 
 import torch
+from torch import nn
 
 from senmodel.model.utils import get_model_last_layer
+from senmodel.model.model import ExpandingLinear
 
 
 class NonlinearityMetric(ABC):
@@ -35,6 +38,57 @@ class GradientMeanEdgeMetric(NonlinearityMetric):
 
         return normalized_gradients
 
+
+class SNIPMetric(NonlinearityMetric):
+    def calculate(self, model, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        model.eval()
+
+        for layer in model.modules():
+            if isinstance(layer, nn.Linear) or isinstance(layer, ExpandingLinear):
+                w = layer.weight if not isinstance(layer, ExpandingLinear) else layer.weight_values
+
+                layer.weight_mask = nn.Parameter(torch.ones_like(w))
+                if isinstance(layer, ExpandingLinear):
+                    nn.init.normal_(w, mean=0, std=0.01)
+                else:
+                    nn.init.xavier_normal_(w)
+                w.requires_grad = False
+
+        model.zero_grad()
+        outputs = model(X_arr).squeeze()
+        loss = self.loss_fn(outputs, y_arr)
+        loss.backward()
+
+        edge_gradients = get_model_last_layer(model).weight_mask.grad.abs()
+
+        model.zero_grad()
+
+        min_val, max_val = edge_gradients.min(), edge_gradients.max()
+        normalized_gradients = (edge_gradients - min_val) / (max_val - min_val + 1e-8)
+
+        return normalized_gradients
+
+class MagnitudeL1Metric(NonlinearityMetric):
+    def calculate(self, model, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        last_layer_weights = get_model_last_layer(model).weight_values.abs()
+
+        min_val, max_val = last_layer_weights.min(), last_layer_weights.max()
+        normalized = (last_layer_weights - min_val) / (max_val - min_val + 1e-8)
+
+        return normalized
+
+
+class MagnitudeL2Metric(NonlinearityMetric):
+    def calculate(self, model, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        last_layer_weights = get_model_last_layer(model).weight_values.pow(2)
+
+        min_val, max_val = last_layer_weights.min(), last_layer_weights.max()
+        normalized = (last_layer_weights - min_val) / (max_val - min_val + 1e-8)
+
+        return normalized
 
 # Метрика 3: Чувствительность к возмущению для каждого ребра
 class PerturbationSensitivityEdgeMetric(NonlinearityMetric):

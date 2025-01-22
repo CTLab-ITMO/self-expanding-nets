@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from .model import ExpandingLinear, SparseModule
+from .model import ExpandingLinear
 
 
 def dense_to_sparse(dense_tensor: torch.Tensor, device='cpu') -> torch.Tensor:
@@ -51,14 +51,7 @@ def convert_dense_to_sparse_network(model: nn.Module, device='cpu') -> nn.Module
 
 
 def get_model_last_layer(model):
-    """
-    Retrieves the last layer of the model if it is a SparseModule, otherwise it attempts to get
-    the last child module in the model.
-
-    Args:
-        model (nn.Module): Model from which to retrieve the last layer.
-
-    Returns:
-        nn.Module or SparseModule: The last layer or SparseModule in the model.
-    """
-    return model if isinstance(model, SparseModule) else list(model.children())[-1]
+    for layer in reversed(list(model.modules())):
+        if isinstance(layer, (nn.Linear, ExpandingLinear)):
+            return layer
+    return None
