@@ -55,3 +55,23 @@ def get_model_last_layer(model):
         if isinstance(layer, (nn.Linear, ExpandingLinear)):
             return layer
     return None
+
+
+def freeze_all_but_last(model: nn.Module):
+    last_layer_params = None
+
+    for name, param in reversed(list(model.named_parameters())):
+        if 'weight' in name or 'bias' in name:
+            last_layer_params = param
+            break
+
+    for param in model.parameters():
+        param.requires_grad_(False)
+
+    if last_layer_params is not None:
+        last_layer_params.requires_grad_(True)
+
+
+def unfreeze_all(model: nn.Module):
+    for param in model.parameters():
+        param.requires_grad_(True)
