@@ -68,10 +68,13 @@ def freeze_all_but_last(model: nn.Module):
     for param in model.parameters():
         param.requires_grad_(False)
 
-    if last_layer_params is not None:
-        last_layer_params.requires_grad_(True)
+    if isinstance(last_layer_params, ExpandingLinear):
+        last_layer_params.freeze_embeds()
 
 
 def unfreeze_all(model: nn.Module):
     for param in model.parameters():
         param.requires_grad_(True)
+
+        if isinstance(param, ExpandingLinear):
+            param.unfreeze_embeds()

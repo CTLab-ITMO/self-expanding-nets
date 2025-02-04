@@ -16,8 +16,8 @@ class SparseModule(ABC, nn.Module):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
-        new_weight = torch.empty(1, device=self.device)
-        nn.init.uniform_(new_weight)
+        new_weight = torch.ones(1, device=self.device)
+        # nn.init.uniform_(new_weight)
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
     def create_sparse_tensor(self):
@@ -92,6 +92,16 @@ class ExpandingLinear(SparseModule):
     def replace_many(self, children, parents):
         self.current_iteration += (len(children) != 0 and len(parents) != 0)
         super().replace_many(children, parents)
+
+    def freeze_embeds(self):
+        for i, embed_linear in enumerate(self.embed_linears[:-1]):
+            for param in embed_linear.parameters():
+                param.requires_grad = False
+
+    def unfreeze_embeds(self):
+        for i, embed_linear in enumerate(self.embed_linears):
+            for param in embed_linear.parameters():
+                param.requires_grad = True
 
     def forward(self, input):
         # Применяем все EmbedLinear слои

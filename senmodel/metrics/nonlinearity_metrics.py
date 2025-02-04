@@ -4,7 +4,7 @@ from abc import abstractmethod, ABC
 import torch
 from torch import nn
 
-from senmodel.model.utils import get_model_last_layer
+from senmodel.model.utils import get_model_last_layer, unfreeze_all
 from senmodel.model.model import ExpandingLinear
 
 
@@ -20,6 +20,8 @@ class NonlinearityMetric(ABC):
 # Метрика 1: Средний градиент для каждого ребра
 class GradientMeanEdgeMetric(NonlinearityMetric):
     def calculate(self, model, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        unfreeze_all(model)
         model.eval()
         model.zero_grad()
 
@@ -42,6 +44,7 @@ class GradientMeanEdgeMetric(NonlinearityMetric):
 class SNIPMetric(NonlinearityMetric):
     def calculate(self, model, X_arr, y_arr):
         model = copy.deepcopy(model)
+        unfreeze_all(model)
         model.eval()
 
         for layer in model.modules():
