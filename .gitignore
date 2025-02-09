@@ -3,3 +3,4 @@ __pycache__/
 /experiments/training/data
 /experiments/training/wandb
 .DS_Store
+sennmodel.egg-info
