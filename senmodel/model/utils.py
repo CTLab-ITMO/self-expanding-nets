@@ -57,7 +57,7 @@ def get_model_last_layer(model):
     return None
 
 
-def freeze_all_but_last(model: nn.Module):
+def freeze_all_but_last(model: nn.Module, len_choose):
     last_layer_params = None
 
     for name, param in reversed(list(model.named_parameters())):
@@ -69,7 +69,7 @@ def freeze_all_but_last(model: nn.Module):
         param.requires_grad_(False)
 
     if isinstance(last_layer_params, ExpandingLinear):
-        last_layer_params.freeze_embeds()
+        last_layer_params.freeze_embeds(len_choose)
 
 
 def unfreeze_all(model: nn.Module):

@@ -12,11 +12,17 @@ class SparseModule(ABC, nn.Module):
         self.weight_size = list(weight_size)
         self.device = device
 
-    def add_edge(self, child, parent):
+        self.activation = nn.LeakyReLU()
+
+    def add_edge(self, child, parent, original_weight, new=True):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
-
-        new_weight = torch.ones(1, device=self.device)
+        new_weight = (
+            torch.tensor(
+                (1.0 if original_weight > 0 else (1.0 / self.activation.negative_slope)) if new else original_weight,
+                device=self.device).unsqueeze(0)
+        )
+        # new_weight = torch.ones(1, device=self.device)
         # nn.init.uniform_(new_weight)
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
@@ -33,14 +39,18 @@ class SparseModule(ABC, nn.Module):
 
 
 class EmbedLinear(SparseModule):
-    def __init__(self, weight_size, activation=nn.ReLU(), device='cpu'):
+    def __init__(self, weight_size, device='cpu'):
         super(EmbedLinear, self).__init__([0, weight_size], device=device)
         self.child_counter = 0
-        self.activation = activation
         self.device = device
 
-    def replace(self, child, parent):
-        self.add_edge(self.child_counter, parent)
+    def replace(self, child, parent, original_weight=1.):
+        # matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
+        #
+        # assert torch.any(matches), "Edge must extist"
+        #
+        # original_weight = self.weight_values[matches].item()
+        self.add_edge(self.child_counter, parent, original_weight=original_weight, new=False)
         self.weight_size[0] += 1
         self.child_counter += 1
 
@@ -79,28 +89,45 @@ class ExpandingLinear(SparseModule):
 
         assert torch.any(matches), "Edge must extist"
 
+        original_weight = self.weight_values[matches].item()
         max_parent = self.weight_indices[1].max().item() + 1  # before deleting edge
 
         self.weight_indices = self.weight_indices[:, ~matches]
         self.weight_values = nn.Parameter(self.weight_values[~matches])
 
-        self.add_edge(child, max_parent)
+        self.add_edge(child, max_parent, original_weight)
 
         self.weight_size[1] += 1
-        self.embed_linears[self.current_iteration].replace(child, parent)
+        self.embed_linears[self.current_iteration].replace(child, parent, original_weight)
 
     def replace_many(self, children, parents):
         self.current_iteration += (len(children) != 0 and len(parents) != 0)
         super().replace_many(children, parents)
 
-    def freeze_embeds(self):
-        for i, embed_linear in enumerate(self.embed_linears[:-1]):
-            for param in embed_linear.parameters():
-                param.requires_grad = False
+    def freeze_embeds(self, len_choose):
+        # freeze_all_but_last
+        with torch.no_grad():
+            if self.embed_linears:
+                # print("weight grads")
+                # print(model.fc1.weight_values.grad)
+
+                for i in range(len(self.embed_linears) - 1):
+                    self.embed_linears[i].weight_values.grad.zero_()
+                for i in range(len(self.weight_values) - len_choose):
+                    self.weight_values.grad[i] = 0
+
+                # print("weight grads zero")
+                # print(model.fc1.weight_values.grad)
 
     def unfreeze_embeds(self):
-        for i, embed_linear in enumerate(self.embed_linears):
+        # Разморозить все веса в embed_linears
+        for embed_linear in self.embed_linears:
             for param in embed_linear.parameters():
+                param.requires_grad = True
+
+        # Разморозить все веса в weight_values
+        if hasattr(self, "weight_values"):
+            for param in self.weight_values:
                 param.requires_grad = True
 
     def forward(self, input):
