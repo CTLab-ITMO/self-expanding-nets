@@ -58,12 +58,7 @@ def get_model_last_layer(model):
 
 
 def freeze_all_but_last(model: nn.Module, len_choose):
-    last_layer_params = None
-
-    for name, param in reversed(list(model.named_parameters())):
-        if 'weight' in name or 'bias' in name:
-            last_layer_params = param
-            break
+    last_layer_params = get_model_last_layer(model)
 
     for param in model.parameters():
         param.requires_grad_(False)
@@ -71,6 +66,9 @@ def freeze_all_but_last(model: nn.Module, len_choose):
     if isinstance(last_layer_params, ExpandingLinear):
         last_layer_params.freeze_embeds(len_choose)
 
+def freeze_only_last(model: nn.Module, len_choose=0):
+    last_layer_params = get_model_last_layer(model)
+    last_layer_params.freeze_embeds(len_choose)
 
 def unfreeze_all(model: nn.Module):
     for param in model.parameters():
