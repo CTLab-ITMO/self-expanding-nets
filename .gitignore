@@ -1,3 +1,6 @@
 .venv
 __pycache__/
-/experiments/training/data
+experiments/training/data
+experiments/training/wandb
+.idea
+senmodel.egg-info
