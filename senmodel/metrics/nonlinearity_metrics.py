@@ -10,16 +10,23 @@ from ..model.utils import get_model_last_layer, unfreeze_all
 
 def get_weights(model, len_choose):
     last_layer = get_model_last_layer(model)
-    weights = last_layer.weight_values[-len_choose:] if len_choose is not None else last_layer.weight_values
-    return weights
+    if len_choose is None:
+        return last_layer.weight_values
+    if len_choose == 0:
+        return []
+    
+    return last_layer.weight_values[-len_choose:] 
 
 def get_weights_grad(model, len_choose):
     last_layer = get_model_last_layer(model)
     grad = last_layer.weight_values.grad
     
-    if len_choose is not None:
-         grad = grad[-len_choose:]
-    return grad
+    if len_choose is None:
+        return grad
+    if len_choose == 0:
+        return []
+    return grad[-len_choose:] 
+
 
 class NonlinearityMetric(ABC):
     def __init__(self, loss_fn):
