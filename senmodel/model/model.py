@@ -70,6 +70,8 @@ class ExpandingLinear(SparseModule):
 
         self.embed_linears = []
 
+        self.count_replaces = [self.weight_indices.size(1)]
+
         bias = bias.coalesce()
         self.bias_indices = bias.indices().to(device)
         self.bias_values = nn.Parameter(bias.values().to(device))
@@ -101,7 +103,12 @@ class ExpandingLinear(SparseModule):
         self.embed_linears[self.current_iteration].replace(child, parent, original_weight)
 
     def replace_many(self, children, parents):
-        self.current_iteration += (len(children) != 0 and len(parents) != 0)
+        replaced_count = len(children)  
+        self.count_replaces.append(replaced_count)
+        
+        if len(children) and len(parents):
+            self.current_iteration += 1
+        
         super().replace_many(children, parents)
 
     def freeze_embeds(self, len_choose):

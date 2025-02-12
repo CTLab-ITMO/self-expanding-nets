@@ -10,9 +10,16 @@ from ..model.utils import get_model_last_layer, unfreeze_all
 
 def get_weights(model, len_choose):
     last_layer = get_model_last_layer(model)
-    weights = last_layer.weight_values[:-len_choose] if len_choose else last_layer.weight_values
+    weights = last_layer.weight_values[-len_choose:] if len_choose is None else last_layer.weight_values
     return weights
 
+def get_weights_grad(model, len_choose):
+    last_layer = get_model_last_layer(model)
+    grad = last_layer.weight_values.grad
+    
+    if len_choose is None:
+         grad = grad[-len_choose:]
+    return grad
 
 class NonlinearityMetric(ABC):
     def __init__(self, loss_fn):
@@ -33,7 +40,7 @@ class AbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        edge_gradients = get_weights(model, len_choose).grad.abs()
+        edge_gradients = get_weights_grad(model, len_choose).abs()
         model.zero_grad()
         return edge_gradients
 
@@ -48,7 +55,7 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        edge_gradients = 1 / (get_weights(model, len_choose).grad.abs() + 1e-8)
+        edge_gradients = 1 / (get_weights_grad(model, len_choose).abs() + 1e-8)
         model.zero_grad()
         return edge_gradients
 

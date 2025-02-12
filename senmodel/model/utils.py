@@ -57,14 +57,28 @@ def get_model_last_layer(model):
     return None
 
 
-def freeze_all_but_last(model: nn.Module, len_choose):
+
+def freeze_all_but_last(model: nn.Module):
     last_layer_params = get_model_last_layer(model)
+    len_choose = last_layer_params.count_replaces
 
-    for param in model.parameters():
-        param.requires_grad_(False)
+    # for param in model.parameters():
+    #     param.requires_grad_(False)
 
-    if isinstance(last_layer_params, ExpandingLinear):
-        last_layer_params.freeze_embeds(len_choose)
+    # if isinstance(last_layer_params, ExpandingLinear):
+    #     last_layer_params.freeze_embeds(len_choose)
+    with torch.no_grad():
+        for i in range(len(last_layer_params.embed_linears) - 1, 0, -1):
+            A = last_layer_params.embed_linears[i].weight_indices
+            A_norm = A.clone()
+            A_norm[1, :] -= len_choose[len(last_layer_params.embed_linears) - i - 1]
+
+            B = last_layer_params.embed_linears[i - 1].weight_indices
+            
+            last_layer_params.embed_linears[i - 1].weight_values.grad[~torch.isin(B[0, :], A[1, :]).nonzero()].zero_()
+
+        for i in range(len(last_layer_params.weight_values) - len_choose[-1]):
+            last_layer_params.weight_values.grad[i] = 0
 
 def freeze_only_last(model: nn.Module, len_choose=0):
     last_layer_params = get_model_last_layer(model)
