@@ -39,7 +39,7 @@ class EdgeFinder:
         else:
             raise ValueError(f"Unsupported aggregation mode: {self.aggregation_mode}")
 
-        if not to_normalise:
+        if not to_normalise or aggregated.numel() == 0:
             return aggregated
 
 

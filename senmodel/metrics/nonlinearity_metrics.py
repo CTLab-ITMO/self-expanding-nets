@@ -13,7 +13,7 @@ def get_weights(model, len_choose):
     if len_choose is None:
         return last_layer.weight_values
     if len_choose == 0:
-        return []
+        return torch.tensor([]) 
     
     return last_layer.weight_values[-len_choose:] 
 
@@ -24,7 +24,7 @@ def get_weights_grad(model, len_choose):
     if len_choose is None:
         return grad
     if len_choose == 0:
-        return []
+        return torch.tensor([]) 
     return grad[-len_choose:] 
 
 
