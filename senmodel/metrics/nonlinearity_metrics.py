@@ -10,14 +10,14 @@ from ..model.utils import get_model_last_layer, unfreeze_all
 
 def get_weights(model, len_choose):
     last_layer = get_model_last_layer(model)
-    weights = last_layer.weight_values[-len_choose:] if len_choose is None else last_layer.weight_values
+    weights = last_layer.weight_values[-len_choose:] if len_choose is not None else last_layer.weight_values
     return weights
 
 def get_weights_grad(model, len_choose):
     last_layer = get_model_last_layer(model)
     grad = last_layer.weight_values.grad
     
-    if len_choose is None:
+    if len_choose is not None:
          grad = grad[-len_choose:]
     return grad
 
