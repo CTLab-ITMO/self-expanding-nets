@@ -1,20 +1,29 @@
 import copy
 from abc import abstractmethod, ABC
+
 import torch
 from torch import nn
-from ..model.utils import get_model_last_layer, unfreeze_all
+
 from ..model.model import ExpandingLinear
+from ..model.utils import get_model_last_layer, unfreeze_all
+
+
+def get_weights(model, len_choose):
+    last_layer = get_model_last_layer(model)
+    weights = last_layer.weight_values[:-len_choose] if len_choose else last_layer.weight_values
+    return weights
+
 
 class NonlinearityMetric(ABC):
     def __init__(self, loss_fn):
         self.loss_fn = loss_fn
 
     @abstractmethod
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose):
         pass
 
 class AbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -24,13 +33,12 @@ class AbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        last_layer = get_model_last_layer(model)
-        edge_gradients = last_layer.weight_values.grad.abs()
+        edge_gradients = get_weights(model, len_choose).grad.abs()
         model.zero_grad()
         return edge_gradients
 
 class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -40,13 +48,13 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        last_layer = get_model_last_layer(model)
-        edge_gradients = 1 / (last_layer.weight_values.grad.abs() + 1e-8)
+        edge_gradients = 1 / (get_weights(model, len_choose).grad.abs() + 1e-8)
         model.zero_grad()
         return edge_gradients
 
+
 class SNIPMetric(NonlinearityMetric):
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose): #todo len_choose
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -70,24 +78,27 @@ class SNIPMetric(NonlinearityMetric):
         model.zero_grad()
         return edge_gradients
 
+
 class MagnitudeL1Metric(NonlinearityMetric):
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose):
         model = copy.deepcopy(model)
-        last_layer_weights = get_model_last_layer(model).weight_values.abs()
+        last_layer_weights = get_weights(model, len_choose).abs()
         return last_layer_weights
 
+
 class MagnitudeL2Metric(NonlinearityMetric):
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose):
         model = copy.deepcopy(model)
-        last_layer_weights = get_model_last_layer(model).weight_values.pow(2)
+        last_layer_weights = get_weights(model, len_choose).pow(2)
         return last_layer_weights
+
 
 class PerturbationSensitivityEdgeMetric(NonlinearityMetric):
     def __init__(self, loss_fn, epsilon=1e-2):
         super().__init__(loss_fn)
         self.epsilon = epsilon
 
-    def calculate(self, model, X_arr, y_arr):
+    def calculate(self, model, X_arr, y_arr, len_choose): #todo len_choose
         model.eval()
         original_output = model(X_arr).detach()
         last_layer = get_model_last_layer(model)
