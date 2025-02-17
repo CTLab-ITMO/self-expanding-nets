@@ -23,30 +23,23 @@ def dense_to_sparse(dense_tensor: torch.Tensor, device='cpu') -> torch.Tensor:
     return sparse_tensor
 
 
-def convert_dense_to_sparse_network(model: nn.Module, device='cpu') -> nn.Module:
-    """
-    Converts a given dense neural network model to a sparse neural network model.
-
-    This function recursively iterates through the given model and replaces all instances of
-    `nn.Linear` layers with `ExpandingLinear` layers.
-
-    Args:
-        model (nn.Module): The dense neural network model to be converted.
-        device (str): Device where the sparse model and its tensors should reside.
-
-    Returns:
-        nn.Module: A new neural network model with sparse layers.
-    """
+def convert_dense_to_sparse_network(model: nn.Module, device='cpu', last_linear_module=None) -> nn.Module:
+    if last_linear_module is None:
+        last_linear_module = get_model_last_layer(model)
+    
     new_model = model.__class__()
 
     for name, module in model.named_children():
         if isinstance(module, nn.Linear):
-            sparse_weight = dense_to_sparse(module.weight.data, device=device)
-            sparse_bias = dense_to_sparse(module.bias.data, device=device)
-
-            setattr(new_model, name, ExpandingLinear(sparse_weight, sparse_bias, device=device))
+            if module is last_linear_module:
+                sparse_weight = dense_to_sparse(module.weight.data, device=device)
+                sparse_bias = dense_to_sparse(module.bias.data, device=device)
+                setattr(new_model, name, ExpandingLinear(sparse_weight, sparse_bias, device=device))
+            else:
+                setattr(new_model, name, module)
         else:
-            setattr(new_model, name, convert_dense_to_sparse_network(module, device=device))
+            setattr(new_model, name, convert_dense_to_sparse_network(module, device=device, last_linear_module=last_linear_module))
+    
     return new_model
 
 
@@ -62,9 +55,9 @@ def freeze_all_but_last(model: nn.Module):
     last_layer_params = get_model_last_layer(model)
     len_choose = last_layer_params.count_replaces
 
-    for param in model.parameters():
-        if last_layer_params is not param:
-            param.requires_grad_(False)
+    # for param in model.parameters():
+    #     if last_layer_params is not param:
+    #         param.requires_grad_(False)
 
     # if isinstance(last_layer_params, ExpandingLinear):
     #     last_layer_params.freeze_embeds(len_choose)
