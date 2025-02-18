@@ -2,6 +2,7 @@ from abc import abstractmethod, ABC
 
 import torch
 from torch import nn
+from random import random
 
 
 class SparseModule(ABC, nn.Module):
@@ -12,14 +13,14 @@ class SparseModule(ABC, nn.Module):
         self.weight_size = list(weight_size)
         self.device = device
 
-        self.activation = nn.LeakyReLU()
+        self.activation = nn.Tanh()
 
     def add_edge(self, child, parent, original_weight, new=True):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
         new_weight = (
             torch.tensor(
-                (1.0 if original_weight > 0 else (1.0 / self.activation.negative_slope)) if new else original_weight,
+                (1.0 + random() / 100) if new else original_weight,
                 device=self.device).unsqueeze(0)
         )
         # new_weight = torch.ones(1, device=self.device)
