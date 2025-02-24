@@ -3,6 +3,8 @@ from abc import abstractmethod, ABC
 import torch
 from torch import nn
 
+from random import random
+
 
 class SparseModule(ABC, nn.Module):
     def __init__(self, weight_size, device='cpu'):
@@ -12,13 +14,14 @@ class SparseModule(ABC, nn.Module):
         self.weight_size = list(weight_size)
         self.device = device
 
-    def add_edge(self, child, parent, n_input):
+    def add_edge(self, child, parent, original_weight, new=True):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
 
-        new_weight = torch.empty(1, device=self.device)
-        # nn.init.uniform_(new_weight, b=torch.sqrt(torch.tensor(2/n_input)))
-        nn.init.uniform_(new_weight)
+        # new_weight = torch.empty(1, device=self.device)
+        # nn.init.uniform_(new_weight)
+        new_weight = torch.tensor(original_weight, device=self.device).unsqueeze(0)
+
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
 
     def create_sparse_tensor(self):
@@ -30,7 +33,7 @@ class SparseModule(ABC, nn.Module):
 
     def replace_many(self, children, parents):
         for c, p in zip(children, parents):
-            self.replace(c, p, len(set(parents.tolist())), len(set(children.tolist())))
+            self.replace(c, p)
 
 
 class EmbedLinear(SparseModule):
@@ -40,14 +43,27 @@ class EmbedLinear(SparseModule):
         self.activation = activation
         self.device = device
 
-    def replace(self, child, parent, n_input, n_output):
-        print('replace in embed n_input:', n_input)
-        self.add_edge(self.child_counter, parent, 28*28)
+    def replace(self, child, parent, original_weight=1.):
+        # print('replace in embed n_input:', n_input)
+        self.add_edge(self.child_counter, parent, original_weight=original_weight)
         self.weight_size[0] += 1
         self.child_counter += 1
+    
+    def make_linear(self, children, parents):
+        print(torch.unique(children))
+        print(torch.unique(parents))
+        for child in torch.unique(children):
+            for parent in torch.unique(parents):
+                self.add_edge(self.child_counter, parent, original_weight=1. / torch.unique(parents).shape[0])
+            self.child_counter += 1
+        self.weight_size[0] = parents.shape[0]
+        print(self.weight_size[0], self.child_counter, self.weight_indices.shape, self.weight_values.shape)
+        print(self.weight_indices)
 
     def forward(self, input):
         sparse_embed_weight = self.create_sparse_tensor()
+        # print(sparse_embed_weight.shape, input.shape)
+        # print(sparse_embed_weight)
         output = torch.sparse.mm(sparse_embed_weight, input.t()).t()
         return torch.cat([input, self.activation(output)], dim=1)
 
@@ -70,7 +86,7 @@ class ExpandingLinear(SparseModule):
         self.current_iteration = -1
         self.device = device
 
-    def replace(self, child, parent, n_input, n_output):
+    def replace(self, child, parent):
         if self.current_iteration == -1:
             self.current_iteration = 0
 
@@ -79,19 +95,20 @@ class ExpandingLinear(SparseModule):
 
         matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
 
+        original_weight = self.weight_values[matches].item()
         self.weight_indices = self.weight_indices[:, ~matches]
         self.weight_values = nn.Parameter(self.weight_values[~matches])
 
         max_parent = self.weight_indices[1].max().item() + 1
-        print('replace in main n_input:', 784)
-        self.add_edge(child, max_parent, 28*28)
+        self.add_edge(child, max_parent, original_weight)
 
         self.weight_size[1] += 1
-        self.embed_linears[self.current_iteration].replace(child, parent, n_input, n_output)
+        # self.embed_linears[self.current_iteration].replace(child, parent)
 
     def replace_many(self, children, parents):
         self.current_iteration += (len(children) != 0 and len(parents) != 0)
         super().replace_many(children, parents)
+        self.embed_linears[self.current_iteration].make_linear(children, parents)
 
     def forward(self, input):
         for embed_linear in self.embed_linears:
