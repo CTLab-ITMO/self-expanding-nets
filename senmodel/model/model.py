@@ -13,16 +13,12 @@ class SparseModule(ABC, nn.Module):
         self.weight_size = list(weight_size)
         self.device = device
 
-        self.activation = nn.Tanh()
+        self.activation = nn.ReLU()
 
-    def add_edge(self, child, parent, original_weight, new=True):
+    def add_edge(self, child, parent, original_weight):
         new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
-        new_weight = (
-            torch.tensor(
-                (1.0 + random() / 100) if new else original_weight,
-                device=self.device).unsqueeze(0)
-        )
+        new_weight = torch.tensor(original_weight, device=self.device).unsqueeze(0)
         # new_weight = torch.ones(1, device=self.device)
         # nn.init.uniform_(new_weight)
         self.weight_values.data = torch.cat([self.weight_values.data, new_weight])
@@ -51,9 +47,24 @@ class EmbedLinear(SparseModule):
         # assert torch.any(matches), "Edge must extist"
         #
         # original_weight = self.weight_values[matches].item()
-        self.add_edge(self.child_counter, parent, original_weight=original_weight, new=False)
+        self.add_edge(self.child_counter, parent, original_weight=original_weight)
         self.weight_size[0] += 1
         self.child_counter += 1
+
+    def make_linear(self, children, parents):
+        # print(torch.unique(children))
+        # print(torch.unique(parents))
+        # for i, child in enumerate(torch.unique(children)):
+        for i in range(children.shape[0]):
+            for j, parent in enumerate(torch.unique(parents)):
+                # self.add_edge(self.child_counter, parent, original_weight=1./torch.unique(parents).shape[0])
+                if i == j: original_weight = 1
+                else: original_weight = random() / 1e8
+                self.add_edge(self.child_counter, parent, original_weight=original_weight)
+            self.child_counter += 1
+        self.weight_size[0] = parents.shape[0]
+        print(self.weight_size[0], self.child_counter, self.weight_indices.shape, self.weight_values.shape)
+        print(self.weight_indices)
 
     def forward(self, input):
         sparse_embed_weight = self.create_sparse_tensor()
@@ -90,18 +101,18 @@ class ExpandingLinear(SparseModule):
 
         matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
 
-        assert torch.any(matches), "Edge must extist"
-
         original_weight = self.weight_values[matches].item()
-        max_parent = self.weight_indices[1].max().item() + 1  # before deleting edge
-
         self.weight_indices = self.weight_indices[:, ~matches]
         self.weight_values = nn.Parameter(self.weight_values[~matches])
 
-        self.add_edge(child, max_parent, original_weight)
-
+        max_parent = self.weight_indices[1].max().item() + 1
+        
+        for ch in torch.unique(self.weight_indices[0]):
+            w = random() / 1e8 if ch != child else original_weight + random() / 1e8
+            self.add_edge(ch, max_parent, w)
+            
         self.weight_size[1] += 1
-        self.embed_linears[self.current_iteration].replace(child, parent, original_weight)
+        # self.embed_linears[self.current_iteration].replace(child, parent)
 
     def replace_many(self, children, parents):
         replaced_count = len(children)  
@@ -111,6 +122,7 @@ class ExpandingLinear(SparseModule):
             self.current_iteration += 1
         
         super().replace_many(children, parents)
+        self.embed_linears[self.current_iteration].make_linear(children, parents)
 
     def freeze_embeds(self, len_choose):
         # freeze_all_but_last
