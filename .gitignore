@@ -3,5 +3,5 @@ __pycache__/
 experiments/training/data
 experiments/training/wandb
 .idea
-senmodel.egg-info
+*.egg-info
 .vscode
