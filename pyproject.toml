@@ -8,9 +8,9 @@ version = '1.0.0'
 authors = []
 description = 'self-expanding-nets'
 readme = 'README.md'
-requires-python = '>= 3.10'
+requires-python = '>= 3.9'
 dependencies = [
-    'torch', 'torchvision', 'pandas']
+    'torch', 'torchvision', 'pandas', 'scikit-learn', 'tqdm', 'wandb']
 
 [tool.setuptools.packages]
 find = { }

@@ -57,9 +57,9 @@ def freeze_all_but_last(model: nn.Module):
     last_layer_params = get_model_last_layer(model)
     len_choose = last_layer_params.count_replaces
 
-    # for param in model.parameters():
-    #     if last_layer_params is not param:
-    #         param.requires_grad_(False)
+    for param in model.parameters():
+        if last_layer_params is not param:
+            param.requires_grad_(False)
 
     # if isinstance(last_layer_params, ExpandingLinear):
     #     last_layer_params.freeze_embeds(len_choose)
