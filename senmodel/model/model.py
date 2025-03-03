@@ -54,10 +54,11 @@ class EmbedLinear(SparseModule):
     def make_linear(self, children, parents):
         # print(torch.unique(children))
         # print(torch.unique(parents))
-        for i, child in enumerate(torch.unique(children)):
+        # for i, child in enumerate(torch.unique(children)):
+        for i in range(children.shape[0]):
             for j, parent in enumerate(torch.unique(parents)):
                 # self.add_edge(self.child_counter, parent, original_weight=1./torch.unique(parents).shape[0])
-                if i == j: original_weight = 1 + random() / 1e8
+                if i == j: original_weight = 1
                 else: original_weight = random() / 1e8
                 self.add_edge(self.child_counter, parent, original_weight=original_weight)
             self.child_counter += 1
