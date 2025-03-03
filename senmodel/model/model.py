@@ -52,19 +52,20 @@ class EmbedLinear(SparseModule):
         self.child_counter += 1
 
     def make_linear(self, children, parents):
-        # print(torch.unique(children))
-        # print(torch.unique(parents))
-        # for i, child in enumerate(torch.unique(children)):
+        num_edges = len(children)
+        done = [None] * num_edges
+
+        for idx, (parent, child) in enumerate(zip(parents, range(num_edges))):
+            self.add_edge(child, parent, original_weight=1)
+            done[idx] = (child, parent)
+        done_set = set(done)
+        unique_parents = torch.unique(parents)
         for i in range(children.shape[0]):
-            for j, parent in enumerate(torch.unique(parents)):
-                # self.add_edge(self.child_counter, parent, original_weight=1./torch.unique(parents).shape[0])
-                if i == j: original_weight = 1
-                else: original_weight = random() / 1e8
-                self.add_edge(self.child_counter, parent, original_weight=original_weight)
-            self.child_counter += 1
+            for j, parent in enumerate(unique_parents):
+                if (i, parent) not in done_set:
+                    self.add_edge(i, parent, original_weight=0)
+        
         self.weight_size[0] = parents.shape[0]
-        print(self.weight_size[0], self.child_counter, self.weight_indices.shape, self.weight_values.shape)
-        print(self.weight_indices)
 
     def forward(self, input):
         sparse_embed_weight = self.create_sparse_tensor()
