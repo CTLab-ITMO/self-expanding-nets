@@ -24,23 +24,14 @@ def dense_to_sparse(dense_tensor: torch.Tensor, device='cpu') -> torch.Tensor:
     return sparse_tensor
 
 
-def convert_dense_to_sparse_network(model: nn.Module, device='cpu', last_linear_module=None) -> nn.Module:
-    
-
+def convert_dense_to_sparse_network(model: nn.Module, layers, device='cpu') -> nn.Module:
     new_model = deepcopy(model)  
-    
-    if last_linear_module is None:
-        last_linear_module = get_model_last_layer(new_model)
 
-    for name, module in new_model.named_children():
-        if isinstance(module, nn.Linear):
-            if module is last_linear_module:
-                sparse_weight = dense_to_sparse(module.weight.data, device=device)
-                sparse_bias = dense_to_sparse(module.bias.data, device=device)
-                setattr(new_model, name, ExpandingLinear(sparse_weight, sparse_bias, device=device))
-        else:
-            setattr(new_model, name, convert_dense_to_sparse_network(module, device=device, last_linear_module=last_linear_module))
-
+    for name, module in model.named_children():
+        if module in layers:
+            sparse_weight = dense_to_sparse(module.weight.data, device=device)
+            sparse_bias = dense_to_sparse(module.bias.data, device=device)
+            setattr(new_model, name, ExpandingLinear(sparse_weight, sparse_bias, device=device))
     return new_model
 
 
