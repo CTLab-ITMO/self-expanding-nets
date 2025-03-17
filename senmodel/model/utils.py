@@ -86,3 +86,18 @@ def unfreeze_all(model: nn.Module):
 
         if isinstance(param, ExpandingLinear):
             param.unfreeze_embeds()
+
+
+def get_params_amount(model, eps=1e-8):
+    amount = 0
+    for linear in model.embed_linears:
+        amount += linear.weight_values.shape[0]
+    amount += model.weight_values.shape[0]
+    return amount
+
+def get_zero_params_amount(model, eps=1e-8):
+    amount = 0
+    for linear in model.embed_linears:
+        amount += linear.weight_values[linear.weight_values.abs() < eps].shape[0]
+    amount += model.weight_values[model.weight_values.abs() < eps].shape[0]
+    return amount
