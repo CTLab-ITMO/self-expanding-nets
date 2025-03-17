@@ -8,7 +8,7 @@ from random import random
 class SparseModule(ABC, nn.Module):
     def __init__(self, weight_size, device='cpu'):
         super(SparseModule, self).__init__()
-        self.weight_indices = torch.empty(2, 0, dtype=torch.long, device=device)
+        self.weight_indices = torch.empty(2, 0, dtype=torch.int, device=device)
         self.weight_values = nn.Parameter(torch.empty(0, device=device))
         self.weight_size = list(weight_size)
         self.device = device
@@ -16,7 +16,7 @@ class SparseModule(ABC, nn.Module):
         self.activation = nn.ReLU()
 
     def add_edge(self, child, parent, original_weight):
-        new_edge = torch.tensor([[child, parent]], dtype=torch.long, device=self.device).t()
+        new_edge = torch.tensor([[child, parent]], dtype=torch.int, device=self.device).t()
         self.weight_indices = torch.cat([self.weight_indices, new_edge], dim=1)
         new_weight = torch.tensor(original_weight, device=self.device).unsqueeze(0)
         # new_weight = torch.ones(1, device=self.device)
@@ -42,37 +42,24 @@ class EmbedLinear(SparseModule):
         self.device = device
 
     def replace(self, child, parent, original_weight=1.):
-        # matches = (self.weight_indices[0] == child) & (self.weight_indices[1] == parent)
-        #
-        # assert torch.any(matches), "Edge must extist"
-        #
-        # original_weight = self.weight_values[matches].item()
         self.add_edge(self.child_counter, parent, original_weight=original_weight)
         self.weight_size[0] += 1
         self.child_counter += 1
 
     def make_linear(self, children, parents):
-        edge_indices = torch.arange(len(children))
-        for i in edge_indices:
-            self.add_edge(int(i), int(parents[i]), original_weight=1)
-        
-        # Находим уникальных родителей
+        num_edges = len(children)
+        done = [None] * num_edges
+
+        for idx, (parent, child) in enumerate(zip(parents, range(num_edges))):
+            self.add_edge(child, parent, original_weight=1)
+            done[idx] = (child, parent)
+        done_set = set(done)
         unique_parents = torch.unique(parents)
-        
-        # Создаем маску для всех возможных ребер (i, p), где p ≠ parents[i]
-        parents_col = parents.view(-1, 1)
-        unique_parents_row = unique_parents.view(1, -1)
-        mask = parents_col != unique_parents_row  # [num_edges, num_unique_parents]
-        
-        # Получаем индексы для добавления нулевых ребер
-        i_indices, j_indices = torch.nonzero(mask, as_tuple=True)
-        zero_edges = torch.stack([i_indices, unique_parents[j_indices]], dim=1).unique(dim=0)
-        
-        # Пакетное добавление нулевых ребер
-        for edge in zero_edges:
-            self.add_edge(int(edge[0]), int(edge[1]), original_weight=0)
-        
-        self.weight_size[0] = parents.shape[0]
+        for i in range(children.shape[0]):
+            for j, parent in enumerate(unique_parents):
+                if (i, parent) not in done_set: 
+                    self.add_edge(i, parent, original_weight=random() / 1e8)
+        self.weight_size[0] = children.shape[0]
 
     def forward(self, input):
         sparse_embed_weight = self.create_sparse_tensor()
@@ -116,7 +103,7 @@ class ExpandingLinear(SparseModule):
         max_parent = self.weight_indices[1].max().item() + 1
         
         for ch in torch.unique(self.weight_indices[0]):
-            w = random() / 1e8 if ch != child else original_weight + random() / 1e8
+            w = random() / 1e8 if ch != child else original_weight
             self.add_edge(ch, max_parent, w)
             
         self.weight_size[1] += 1
