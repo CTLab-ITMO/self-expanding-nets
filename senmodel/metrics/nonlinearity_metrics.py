@@ -45,7 +45,7 @@ class NonlinearityMetric(ABC):
         self.loss_fn = loss_fn
 
     @abstractmethod
-    def calculate(self, model, layer_name, mask, X_arr, y_arr):
+    def calculate(self, model, layer_name, mask, add_embed, X_arr, y_arr):
         pass
 
 class AbsGradientEdgeMetric(NonlinearityMetric):
@@ -108,13 +108,13 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
 
 
 class MagnitudeL1Metric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, X_arr=None, y_arr=None):
+    def calculate(self, model, layer_name, mask, add_embed=False, X_arr=None, y_arr=None):
         layer = model.__getattr__(layer_name)
         return layer.weight_values[mask].abs()
 
 
 class MagnitudeL2Metric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, X_arr=None, y_arr=None):
+    def calculate(self, model, layer_name, mask, add_embed=False, X_arr=None, y_arr=None):
         layer = model.__getattr__(layer_name)
         return torch.pow(layer.weight_values[mask], 2)
 
