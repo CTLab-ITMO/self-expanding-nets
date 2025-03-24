@@ -69,5 +69,5 @@ class EdgeFinder:
         avg_metric = self.calculate_edge_metric_for_dataloader(model, layer_name, layer_mask)
         mask = avg_metric > threshold
         res = layer.weight_indices[:, mask.nonzero(as_tuple=True)[0]]
-        print("shapes", layer.weight_values.shape, res.shape)
+        # print("shapes", layer.weight_values.shape, res.shape)
         return res
