@@ -55,6 +55,12 @@ def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold,
     return len(chosen_edges[0])
 
 
+def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef):
+    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, None, True)
+    print("Chosen edges to del:", chosen_edges, len(chosen_edges[0]))
+    layer.delete_many(*chosen_edges)
+    return len(chosen_edges[0])
+
 def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     criterion = nn.CrossEntropyLoss()
@@ -71,21 +77,27 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
         
-        if epoch - replace_epoch[-1] > 8:
+        if epoch - replace_epoch[-1] > 2:
             recent_changes = [abs(val_losses[i] - val_losses[i - 1]) for i in range(-hyperparams['window_size'], 0)]
             avg_change = sum(recent_changes) / hyperparams['window_size']
             if avg_change < hyperparams['threshold']:
                 # layer = model.fc0
                 # mask = torch.ones_like(layer.weight_values, dtype=bool)
                 # len_choose = edge_replacement_func_new_layer(layer, mask, optimizer, val_loader, metric, 0.3, 'mean')
-
+                
                 layer = model.fc0
+                print(layer.current_iteration)
                 mask = torch.ones_like(layer.weight_values, dtype=bool)
                 len_choose = edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_threshold'], ef)
 
                 wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
 
+        # if epoch - replace_epoch[-1] == 1 and replace_epoch[-1] != 0:
+        #     layer = model.fc0
+        #     len_choose = edge_deletion_func_new_layer(model, layer, hyperparams['choose_threshold'], ef)
+        #     wandb.log({'del_len_choose': len_choose})
+        
         params_amount = get_params_amount(model)
         # zero_params_amount = get_zero_params_amount(model)
         layer = model.fc0

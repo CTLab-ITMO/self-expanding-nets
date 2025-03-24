@@ -45,11 +45,11 @@ class NonlinearityMetric(ABC):
         self.loss_fn = loss_fn
 
     @abstractmethod
-    def calculate(self, model, layer, mask, add_embed, X_arr, y_arr):
+    def calculate(self, model, layer, mask, add_embed, X_arr, y_arr, embed=False):
         pass
 
 class AbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, layer, mask, X_arr, y_arr):
+    def calculate(self, model, layer, mask, X_arr, y_arr, embed=False):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -59,12 +59,12 @@ class AbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        edge_gradients = layer.weight_values.grad[mask].abs()
+        edge_gradients = layer.weight_values.grad[mask].abs() if not embed else layer.embed_linears[-1].weight_values.grad.abs()
         model.zero_grad()
         return edge_gradients
 
 class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, layer, mask, X_arr, y_arr):
+    def calculate(self, model, layer, mask, X_arr, y_arr, embed=False):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -74,7 +74,8 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        edge_gradients = 1 / (layer.weight_values.grad[mask].abs() + 1e-8)
+        edge_gradients = layer.weight_values.grad[mask].abs() if not embed else layer.embed_linears[-1].weight_values.grad.abs()
+        edge_gradients = 1 / (edge_gradients + 1e-8)
         model.zero_grad()
         return edge_gradients
 
@@ -106,13 +107,13 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
 
 
 class MagnitudeL1Metric(NonlinearityMetric):
-    def calculate(self, model, layer, mask, add_embed=False, X_arr=None, y_arr=None):
-        return layer.weight_values[mask].abs()
+    def calculate(self, model, layer, mask, X_arr=None, y_arr=None, embed=False):
+        return layer.weight_values[mask].abs() if not embed else layer.embed_linears[-1].weight_values.abs()
 
 
 class MagnitudeL2Metric(NonlinearityMetric):
-    def calculate(self, model, layer, mask, add_embed=False, X_arr=None, y_arr=None):
-        return torch.pow(layer.weight_values[mask], 2)
+    def calculate(self, model, layer, mask, X_arr=None, y_arr=None, embed=False):
+        return torch.pow(layer.weight_values[mask], 2) if not embed else torch.pow(layer.embed_linears[-1].weight_values, 2)
 
 
 # class PerturbationSensitivityEdgeMetric(NonlinearityMetric):
