@@ -45,11 +45,11 @@ class NonlinearityMetric(ABC):
         self.loss_fn = loss_fn
 
     @abstractmethod
-    def calculate(self, model, layer_name, mask, add_embed, X_arr, y_arr):
+    def calculate(self, model, layer, mask, add_embed, X_arr, y_arr):
         pass
 
 class AbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, X_arr, y_arr):
+    def calculate(self, model, layer, mask, X_arr, y_arr):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -59,13 +59,12 @@ class AbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        layer = model.__getattr__(layer_name)
         edge_gradients = layer.weight_values.grad[mask].abs()
         model.zero_grad()
         return edge_gradients
 
 class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, X_arr, y_arr):
+    def calculate(self, model, layer, mask, X_arr, y_arr):
         model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
@@ -75,7 +74,6 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
         loss = self.loss_fn(y_pred, y_arr)
         loss.backward()
 
-        layer = model.__getattr__(layer_name)
         edge_gradients = 1 / (layer.weight_values.grad[mask].abs() + 1e-8)
         model.zero_grad()
         return edge_gradients
@@ -108,14 +106,12 @@ class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
 
 
 class MagnitudeL1Metric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, add_embed=False, X_arr=None, y_arr=None):
-        layer = model.__getattr__(layer_name)
+    def calculate(self, model, layer, mask, add_embed=False, X_arr=None, y_arr=None):
         return layer.weight_values[mask].abs()
 
 
 class MagnitudeL2Metric(NonlinearityMetric):
-    def calculate(self, model, layer_name, mask, add_embed=False, X_arr=None, y_arr=None):
-        layer = model.__getattr__(layer_name)
+    def calculate(self, model, layer, mask, add_embed=False, X_arr=None, y_arr=None):
         return torch.pow(layer.weight_values[mask], 2)
 
 

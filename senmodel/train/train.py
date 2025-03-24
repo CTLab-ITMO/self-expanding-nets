@@ -42,10 +42,9 @@ def eval_one_epoch(model, criterion, val_loader):
     return val_loss, val_accuracy
 
 
-def edge_replacement_func_new_layer(model, layer_name, mask, optim, choose_threshold, ef):
-    layer = model.__getattr__(layer_name)
+def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold, ef):
     # ef = EdgeFinder(metric, val_loader, device, aggregation_mode)
-    chosen_edges = ef.choose_edges_threshold(model, layer_name, choose_threshold, mask)
+    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, mask)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
     layer.replace_many(*chosen_edges)
 
@@ -82,7 +81,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
 
                 layer = model.fc0
                 mask = torch.ones_like(layer.weight_values, dtype=bool)
-                len_choose = edge_replacement_func_new_layer(model, 'fc0', mask, optimizer, hyperparams['choose_threshold'], ef)
+                len_choose = edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_threshold'], ef)
 
                 wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
@@ -91,7 +90,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
         # zero_params_amount = get_zero_params_amount(model)
         layer = model.fc0
         mask = torch.ones_like(layer.weight_values, dtype=bool)
-        replace_params = get_to_replace_params_amount(ef, model, ['fc0'], mask, hyperparams['choose_threshold'])
+        replace_params = get_to_replace_params_amount(ef, model, [layer], mask, hyperparams['choose_threshold'])
         wandb.log({'val loss': val_loss, 'val accuracy': val_accuracy,
                    'train loss': train_loss, 'params amount': params_amount,
                    'params to replace amount': replace_params, 'train time': train_time,

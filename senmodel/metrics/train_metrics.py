@@ -24,8 +24,8 @@ def get_zero_params_amount(model, eps=1e-8):
     return amount
 
 
-def get_to_replace_params_amount(ef, model, layer_names, mask, choose_threshold):
+def get_to_replace_params_amount(ef, model, layers, mask, choose_threshold):
     chosen_edges = 0
-    for layer_name in layer_names:
-        chosen_edges += len(ef.choose_edges_threshold(model, layer_name, choose_threshold, mask)[0])
+    for layer in layers:
+        chosen_edges += len(ef.choose_edges_threshold(model, layer, choose_threshold, mask)[0])
     return chosen_edges
