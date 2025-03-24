@@ -76,7 +76,7 @@ class EmbedLinear(SparseModule):
         )
 
         self.weight_indices = self.weight_indices[:, mask]
-        self.weight_values = self.weight_values[mask]
+        self.weight_values = nn.Parameter(self.weight_values[mask])
 
 
 

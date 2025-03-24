@@ -56,7 +56,7 @@ def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold,
 
 
 def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef):
-    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, None, True)
+    chosen_edges = ef.choose_edges_threshold(model=model, layer=layer, threshold=choose_threshold, layer_mask=None, embed=True)
     print("Chosen edges to del:", chosen_edges, len(chosen_edges[0]))
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
@@ -93,10 +93,10 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
                 wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
 
-        # if epoch - replace_epoch[-1] == 1 and replace_epoch[-1] != 0:
-        #     layer = model.fc0
-        #     len_choose = edge_deletion_func_new_layer(model, layer, hyperparams['choose_threshold'], ef)
-        #     wandb.log({'del_len_choose': len_choose})
+        if epoch - replace_epoch[-1] == 2 and replace_epoch[-1] != 0:
+            layer = model.fc0
+            len_choose = edge_deletion_func_new_layer(model, layer, hyperparams['choose_threshold'], ef)
+            wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
         # zero_params_amount = get_zero_params_amount(model)
