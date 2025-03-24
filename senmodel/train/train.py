@@ -76,7 +76,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
         
-        if epoch - replace_epoch[-1] > hyperparams['min_delta_epoch_replace']:
+        if epoch - replace_epoch[-1] > hyperparams['min_delta_epoch_replace'] and epoch - replace_epoch[-1] != hyperparams['delete_after']:
             recent_changes = [abs(val_losses[i] - val_losses[i - 1]) for i in range(-hyperparams['window_size'], 0)]
             avg_change = sum(recent_changes) / hyperparams['window_size']
             if avg_change < hyperparams['threshold']:
@@ -92,12 +92,12 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
                 wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
 
-        if epoch - replace_epoch[-1] == 2 and replace_epoch[-1] != 0:
+        if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
             for layer_name in hyperparams['replace_layers']:
                 layer = model.__getattr__(layer_name)
                 mask = torch.ones_like(layer.weight_values, dtype=bool)
-                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
+                len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef)
             wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
