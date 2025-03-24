@@ -1,7 +1,9 @@
 .venv
 __pycache__/
 experiments/training/data
+experiments/sparse_experiments/data
 experiments/training/wandb
 .idea
 *.egg-info
 .vscode
+.DS_Store

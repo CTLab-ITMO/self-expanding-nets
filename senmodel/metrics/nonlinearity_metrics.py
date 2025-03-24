@@ -45,38 +45,40 @@ class NonlinearityMetric(ABC):
         self.loss_fn = loss_fn
 
     @abstractmethod
-    def calculate(self, layer, mask):
+    def calculate(self, model, layer_name, mask, X_arr, y_arr):
         pass
 
-# class AbsGradientEdgeMetric(NonlinearityMetric):
-#     def calculate(self, model, X_arr, y_arr, len_choose):
-#         model = copy.deepcopy(model)
-#         unfreeze_all(model)
-#         model.eval()
-#         model.zero_grad()
+class AbsGradientEdgeMetric(NonlinearityMetric):
+    def calculate(self, model, layer_name, mask, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        unfreeze_all(model)
+        model.eval()
+        model.zero_grad()
 
-#         y_pred = model(X_arr).squeeze()
-#         loss = self.loss_fn(y_pred, y_arr)
-#         loss.backward()
+        y_pred = model(X_arr).squeeze()
+        loss = self.loss_fn(y_pred, y_arr)
+        loss.backward()
 
-#         edge_gradients = get_weights_grad(model, len_choose).abs()
-#         model.zero_grad()
-#         return edge_gradients
+        layer = model.__getattr__(layer_name)
+        edge_gradients = layer.weight_values.grad[mask].abs()
+        model.zero_grad()
+        return edge_gradients
 
-# class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
-#     def calculate(self, model, X_arr, y_arr, len_choose):
-#         model = copy.deepcopy(model)
-#         unfreeze_all(model)
-#         model.eval()
-#         model.zero_grad()
+class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
+    def calculate(self, model, layer_name, mask, X_arr, y_arr):
+        model = copy.deepcopy(model)
+        unfreeze_all(model)
+        model.eval()
+        model.zero_grad()
 
-#         y_pred = model(X_arr).squeeze()
-#         loss = self.loss_fn(y_pred, y_arr)
-#         loss.backward()
+        y_pred = model(X_arr).squeeze()
+        loss = self.loss_fn(y_pred, y_arr)
+        loss.backward()
 
-#         edge_gradients = 1 / (get_weights_grad(model, len_choose).abs() + 1e-8)
-#         model.zero_grad()
-#         return edge_gradients
+        layer = model.__getattr__(layer_name)
+        edge_gradients = 1 / (layer.weight_values.grad[mask].abs() + 1e-8)
+        model.zero_grad()
+        return edge_gradients
 
 
 # class SNIPMetric(NonlinearityMetric):
@@ -106,12 +108,14 @@ class NonlinearityMetric(ABC):
 
 
 class MagnitudeL1Metric(NonlinearityMetric):
-    def calculate(self, layer, mask):
+    def calculate(self, model, layer_name, mask, X_arr=None, y_arr=None):
+        layer = model.__getattr__(layer_name)
         return layer.weight_values[mask].abs()
 
 
 class MagnitudeL2Metric(NonlinearityMetric):
-    def calculate(self, layer, mask):
+    def calculate(self, model, layer_name, mask, X_arr=None, y_arr=None):
+        layer = model.__getattr__(layer_name)
         return torch.pow(layer.weight_values[mask], 2)
 
 
