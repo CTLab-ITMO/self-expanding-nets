@@ -93,8 +93,11 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
                 replace_epoch += [epoch]
 
         if epoch - replace_epoch[-1] == 2 and replace_epoch[-1] != 0:
-            layer = model.fc0
-            len_choose = edge_deletion_func_new_layer(model, layer, hyperparams['choose_threshold'], ef)
+            len_choose = 0
+            for layer_name in hyperparams['replace_layers']:
+                layer = model.__getattr__(layer_name)
+                mask = torch.ones_like(layer.weight_values, dtype=bool)
+                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
             wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
