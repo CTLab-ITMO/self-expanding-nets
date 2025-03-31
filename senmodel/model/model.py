@@ -182,5 +182,23 @@ class ExpandingLinear(SparseModule):
 
         return output
 
-    def delete_many(self, children, parents):
-        self.embed_linears[-1].delete_many(children, parents)
+    def delete_many(self, emb_pairs, exp_pairs):
+        self.embed_linears[-1].delete_many(*emb_pairs)
+        children, parents = exp_pairs
+        
+        to_delete = set(zip(children.tolist(), parents.tolist()))
+        
+        mask = torch.tensor(
+            [(child, parent) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
+            device=self.device
+        )
+
+        self.weight_indices = self.weight_indices[:, mask]
+        self.weight_values = nn.Parameter(self.weight_values[mask])
+        
+        
+    def get_non_zero_params(self):
+        last_embed_linear = self.embed_linears[-1]
+        embed_weight_mask = last_embed_linear.weight_values != 0
+        expanding_weight_mask = self.weight_values != 0
+        return embed_weight_mask, expanding_weight_mask
