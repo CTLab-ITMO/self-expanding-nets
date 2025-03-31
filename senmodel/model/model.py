@@ -193,7 +193,6 @@ class ExpandingLinear(SparseModule):
             device=self.device
         )
         
-        print(len(to_delete), len(self.weight_indices[0]), mask.sum())
         
         self.weight_indices = self.weight_indices[:, mask]
         self.weight_values = nn.Parameter(self.weight_values[mask])
