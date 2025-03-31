@@ -1,6 +1,7 @@
 import time
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
+from senmodel.metrics.nonlinearity_metrics import AbsGradientEdgeMetric
 from senmodel.model.utils import *
 import torch.optim as optim
 from senmodel.metrics.train_metrics import *
@@ -42,11 +43,13 @@ def eval_one_epoch(model, criterion, val_loader):
     return val_loss, val_accuracy
 
 
-def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold, ef):
-    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, mask)
+def edge_replacement_func_new_layer(model, layer, masks, optim, choose_threshold, ef):
+    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, masks)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
     layer.replace_many(*chosen_edges)
 
+    
+    
     if len(chosen_edges[0]) > 0:
         optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
         optim.add_param_group({'params': layer.weight_values})
@@ -54,8 +57,9 @@ def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold,
     return len(chosen_edges[0])
 
 
-def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef):
+def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef, efg):
     chosen_edges = ef.choose_edges_threshold(model=model, layer=layer, threshold=choose_threshold, layer_mask=None, embed=True)
+    
     print("Chosen edges to del:", chosen_edges, len(chosen_edges[0]))
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
@@ -64,6 +68,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     criterion = nn.CrossEntropyLoss()
     ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
+    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
 
     replace_epoch = [0]
     val_losses = []
@@ -83,19 +88,18 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
                 for layer_name in hyperparams['replace_layers']:
                     layer = model.__getattr__(layer_name)
                     mask = torch.ones_like(layer.weight_values, dtype=bool)
-                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
+                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef, efg)
 
-                # wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
 
         # елси хотите удаление, то уберите комментарий
-        # if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
-        #     len_choose = 0
-        #     for layer_name in hyperparams['replace_layers']:
-        #         layer = model.__getattr__(layer_name)
-        #         mask = torch.ones_like(layer.weight_values, dtype=bool)
-        #         len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef)
-        #     wandb.log({'del_len_choose': len_choose})
+        if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
+            len_choose = 0
+            for layer_name in hyperparams['replace_layers']:
+                layer = model.__getattr__(layer_name)
+                mask = torch.ones_like(layer.weight_values, dtype=bool)
+                len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef)
+            wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
         replace_params = 0
