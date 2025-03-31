@@ -8,6 +8,7 @@ from senmodel.metrics.train_metrics import *
 from senmodel.metrics.edge_finder import *
 import wandb
 
+
 def train_one_epoch(model, optimizer, criterion, train_loader):
     t0 = time.time()
     model.train()
@@ -47,28 +48,24 @@ def edge_replacement_func_new_layer(model, layer, masks, optim, choose_threshold
     chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, masks)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
     layer.replace_many(*chosen_edges)
-
-    
-    
     if len(chosen_edges[0]) > 0:
         optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
         optim.add_param_group({'params': layer.weight_values})
-    print(len(chosen_edges[0]))
     return len(chosen_edges[0])
 
 
-def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef, efg):
+def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef):
     chosen_edges = ef.choose_edges_threshold(model=model, layer=layer, threshold=choose_threshold, layer_mask=None, embed=True)
-    
     print("Chosen edges to del:", chosen_edges, len(chosen_edges[0]))
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
+
 
 def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     criterion = nn.CrossEntropyLoss()
     ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
-    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
+    # efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
 
     replace_epoch = [0]
     val_losses = []
@@ -88,11 +85,11 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
                 for layer_name in hyperparams['replace_layers']:
                     layer = model.__getattr__(layer_name)
                     mask = torch.ones_like(layer.weight_values, dtype=bool)
-                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef, efg)
+                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
 
                 replace_epoch += [epoch]
 
-        # елси хотите удаление, то уберите комментарий
+        # если хотите удаление, то уберите комментарий
         if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
             for layer_name in hyperparams['replace_layers']:
@@ -109,13 +106,16 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
             replace_params += len(ef.choose_edges_threshold(model, layer, hyperparams['choose_thresholds'][layer_name], mask)[0])
 
         logs = {'val loss': val_loss, 'val accuracy': val_accuracy,
-                   'train loss': train_loss, 'params amount': params_amount,
-                   'params to replace amount': replace_params, 'train time': train_time,
-                   'params ratio': (params_amount - replace_params) / params_amount,
-                   'lr': optimizer.param_groups[0]['lr'], 'acc amount': val_accuracy / params_amount}
+                'train loss': train_loss, 'params amount': params_amount,
+                'params to replace amount': replace_params, 'train time': train_time,
+                'params ratio': (params_amount - replace_params) / params_amount,
+                'lr': optimizer.param_groups[0]['lr'], 'acc amount': val_accuracy / params_amount,
+                'n_params / train_time': params_amount / train_time,
+                'train_time / n_params': train_time / params_amount}
 
-        if (epoch in replace_epoch) and epoch != 0: logs['len_choose'] = len_choose
-        else: logs.pop('len_choose', None)
-
+        if (epoch in replace_epoch) and epoch != 0: 
+            logs['len_choose'] = len_choose
+        else: 
+            logs.pop('len_choose', None)
 
         wandb.log(logs)
