@@ -134,13 +134,13 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
                 replace_epoch += [epoch]
 
         # елси хотите удаление, то уберите комментарий
-        if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
-            len_choose = 0
-            for layer_name in hyperparams['replace_layers']:
-                layer = model.__getattr__(layer_name)
-                mask = torch.ones_like(layer.weight_values, dtype=bool)
-                len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef, efg)
-            wandb.log({'del_len_choose': len_choose})
+        # if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
+        #     len_choose = 0
+        #     for layer_name in hyperparams['replace_layers']:
+        #         layer = model.__getattr__(layer_name)
+        #         mask = torch.ones_like(layer.weight_values, dtype=bool)
+        #         len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef, efg)
+        #     wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
         replace_params = 0
