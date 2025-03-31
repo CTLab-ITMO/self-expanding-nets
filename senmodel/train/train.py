@@ -1,6 +1,6 @@
 import time
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 from senmodel.metrics.nonlinearity_metrics import AbsGradientEdgeMetric
 from senmodel.model.utils import *
 import torch.optim as optim
@@ -25,7 +25,21 @@ def train_one_epoch(model, optimizer, criterion, train_loader):
     return train_loss, train_time
 
 
-def eval_one_epoch(model, criterion, val_loader):
+def eval_one_epoch(model, criterion, val_loader, task_type):
+    '''
+    Args:
+        model (torch.nn.Module)
+        criterion (torch.nn.Module)
+        val_loader (torch.utils.data.DataLoader)
+        task_type (str): 'regression' or 'classification'.
+
+    Returns:
+        tuple: A tuple containing:
+            - val_loss (float): Average loss over the validation set.
+            - val_accuracy (float) / MSE (float): Accuracy score for classification tasks,
+                                   or MSE for regression tasks.
+    '''
+
     model.eval()
     val_loss = 0
     all_targets = []
@@ -35,12 +49,18 @@ def eval_one_epoch(model, criterion, val_loader):
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             val_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
+
+            if task_type == 'classification': preds = torch.argmax(outputs, dim=1)
+            else: preds = outputs
+
             all_targets.extend(targets.cpu().numpy())
             all_preds.extend(preds.cpu().numpy())
     val_loss /= len(val_loader)
-    val_accuracy = accuracy_score(all_targets, all_preds)
-    return val_loss, val_accuracy
+
+    if task_type == 'classification': metric = accuracy_score(all_targets, all_preds)
+    else: metric = mean_squared_error(all_targets, all_preds)
+
+    return val_loss, metric
 
 
 def edge_replacement_func_new_layer(model, layer, masks, optim, choose_threshold, ef):
@@ -73,7 +93,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
     val_losses = []
     for epoch in range(hyperparams['num_epochs']):
         train_loss, train_time = train_one_epoch(model, optimizer, criterion, train_loader)
-        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader)
+        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader, hyperparams['task_type'])
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
