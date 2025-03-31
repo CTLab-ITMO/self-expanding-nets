@@ -35,13 +35,11 @@ def convert_dense_to_sparse_network(model: nn.Module, layers, device='cpu') -> n
     return new_model
 
 
-
 def get_model_last_layer(model):
     for layer in reversed(list(model.modules())):
         if isinstance(layer, (nn.Linear, ExpandingLinear)):
             return layer
     return None
-
 
 
 def freeze_all_but_last(model: nn.Module):
@@ -71,9 +69,21 @@ def freeze_only_last(model: nn.Module, len_choose=0):
     last_layer_params = get_model_last_layer(model)
     last_layer_params.freeze_embeds(len_choose)
 
+
 def unfreeze_all(model: nn.Module):
     for param in model.parameters():
         param.requires_grad_(True)
 
         if isinstance(param, ExpandingLinear):
             param.unfreeze_embeds()
+
+
+def freeze_model(model, num_trainable_layers: int = 1):
+    for i in range(len(list(model.children())) - num_trainable_layers):
+        for param in list(model.children())[i].parameters():
+            param.requires_grad = False
+
+
+def print_layer_status(model):
+    for name, param in model.named_parameters():
+        print(f"Layer: {name}, frozen: {not param.requires_grad}")

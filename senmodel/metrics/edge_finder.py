@@ -12,12 +12,12 @@ class EdgeFinder:
         self.aggregation_mode = aggregation_mode
         assert aggregation_mode in ['mean', 'variance'], "Aggregation mode must be 'mean' or 'variance'."
 
-    def calculate_edge_metric_for_dataloader(self, model, layer_name, mask, to_normalise=True):
+    def calculate_edge_metric_for_dataloader(self, model, layer, mask, to_normalise=True, embed=False):
         if self.aggregation_mode == 'mean':
             accumulated = None
             for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
-                metric = self.metric.calculate(model, layer_name, mask, data, target) 
+                metric = self.metric.calculate(model, layer, mask, data, target, embed) 
                 if accumulated is None:
                     accumulated = torch.zeros_like(metric).to(self.device)
                 accumulated += metric
@@ -28,7 +28,7 @@ class EdgeFinder:
             n = len(self.dataloader)
             for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
-                metric = self.metric.calculate(model, layer_name, mask, data, target)
+                metric = self.metric.calculate(model, layer, mask, data, target, embed)
                 if sum_ is None:
                     sum_ = torch.zeros_like(metric).to(self.device)
                     sum_sq = torch.zeros_like(metric).to(self.device)
@@ -63,10 +63,9 @@ class EdgeFinder:
     #     last_layer = get_model_last_layer(model)
     #     return last_layer.weight_indices[:, sorted_indices[:k]]
 
-    def choose_edges_threshold(self, model, layer_name, threshold, layer_mask):
+    def choose_edges_threshold(self, model, layer, threshold, layer_mask, embed=False):
         assert 0 < threshold <= 1
-        layer = model.__getattr__(layer_name)
-        avg_metric = self.calculate_edge_metric_for_dataloader(model, layer_name, layer_mask)
+        avg_metric = self.calculate_edge_metric_for_dataloader(model=model, layer=layer, mask=layer_mask, to_normalise=True, embed=embed)
         mask = avg_metric > threshold
         res = layer.weight_indices[:, mask.nonzero(as_tuple=True)[0]]
         # print("shapes", layer.weight_values.shape, res.shape)

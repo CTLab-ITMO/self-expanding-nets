@@ -65,6 +65,21 @@ class EmbedLinear(SparseModule):
         sparse_embed_weight = self.create_sparse_tensor()
         output = torch.sparse.mm(sparse_embed_weight, input.t()).t()
         return torch.cat([input, self.activation(output)], dim=1)
+    
+
+    def delete_many(self, children, parents):
+        to_delete = set(zip(children.tolist(), parents.tolist()))
+        
+        mask = torch.tensor(
+            [(child, parent) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
+            device=self.device
+        )
+
+        self.weight_indices = self.weight_indices[:, mask]
+        self.weight_values = nn.Parameter(self.weight_values[mask])
+
+
+
 
 
 class ExpandingLinear(SparseModule):
@@ -166,3 +181,6 @@ class ExpandingLinear(SparseModule):
         output += sparse_bias.unsqueeze(0)
 
         return output
+
+    def delete_many(self, children, parents):
+        self.embed_linears[-1].delete_many(children, parents)

@@ -7,3 +7,4 @@ experiments/training/wandb
 *.egg-info
 .vscode
 .DS_Store
+sen-venv/
