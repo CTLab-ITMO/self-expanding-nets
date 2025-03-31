@@ -55,21 +55,25 @@ def edge_replacement_func_new_layer(model, layer, optim, choose_threshold, ef):
     return len(chosen_edges[0])
 
 
-def edge_deletion_func_new_layer(model, layer, masks, choose_threshold, ef, efg):
+def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, ef, efg):
     
     metr_edges_emb = ef.calculate_edge_metric_for_dataloader(model=model, layer=layer,  to_normalise=False, embed=True)
     metr_edges_exp = ef.calculate_edge_metric_for_dataloader(model=model, layer=layer, to_normalise=False, embed=False)
     print(metr_edges_emb.shape, metr_edges_exp.shape)
         
     combined_metrics = torch.cat([metr_edges_emb, metr_edges_exp])
+    print("combined_metrics", combined_metrics.shape)
     
     min_val = combined_metrics.min()
     max_val = combined_metrics.max()
     normalized = (combined_metrics - min_val) / (max_val - min_val + 1e-8)
     
-    mask = normalized > choose_threshold
-    
+    mask = normalized < 0.1
+    print("mask", mask.shape)
+    print(mask.sum())
+
     num_emb_edges = len(metr_edges_emb)
+    print("num_emb_edges", num_emb_edges)
     mask_emb = mask[:num_emb_edges]
     mask_exp = mask[num_emb_edges:]
     
@@ -82,9 +86,14 @@ def edge_deletion_func_new_layer(model, layer, masks, choose_threshold, ef, efg)
     chosen_edges_exp = layer.weight_indices[:, mask_exp.nonzero(as_tuple=True)[0]]
     
     print("Chosen edges to del emb:", chosen_edges_emb, len(chosen_edges_emb[0]))
-    print("Chosen edges to del:", chosen_edges_exp, len(chosen_edges_exp[0]))
+    print("Chosen edges to del exp:", chosen_edges_exp, len(chosen_edges_exp[0]))
     
     layer.delete_many(chosen_edges_emb, chosen_edges_exp)
+
+    optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
+    optim.add_param_group({'params': layer.weight_values})
+
+
     return len(chosen_edges_emb[0]) + len(chosen_edges_exp[0])
 
 def train_sparse_recursive(model, train_loader, val_loader,  test_loader, hyperparams):
@@ -121,7 +130,7 @@ def train_sparse_recursive(model, train_loader, val_loader,  test_loader, hyperp
             len_choose = 0
             for layer_name in hyperparams['replace_layers']:
                 layer = model.__getattr__(layer_name)
-                len_choose += edge_deletion_func_new_layer(model, layer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef, efg)
+                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef, efg)
             
         
         params_amount = get_params_amount(model)
