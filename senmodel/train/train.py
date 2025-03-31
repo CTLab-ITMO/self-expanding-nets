@@ -85,7 +85,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
                     mask = torch.ones_like(layer.weight_values, dtype=bool)
                     len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
 
-                wandb.log({'len_choose': len_choose})
+                # wandb.log({'len_choose': len_choose})
                 replace_epoch += [epoch]
 
         # елси хотите удаление, то уберите комментарий
@@ -104,8 +104,14 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
             mask = torch.ones_like(layer.weight_values, dtype=bool)
             replace_params += len(ef.choose_edges_threshold(model, layer, hyperparams['choose_thresholds'][layer_name], mask)[0])
 
-        wandb.log({'val loss': val_loss, 'val accuracy': val_accuracy,
+        logs = {'val loss': val_loss, 'val accuracy': val_accuracy,
                    'train loss': train_loss, 'params amount': params_amount,
                    'params to replace amount': replace_params, 'train time': train_time,
                    'params ratio': (params_amount - replace_params) / params_amount,
-                   'lr': optimizer.param_groups[0]['lr'], 'acc amount': val_accuracy / params_amount})
+                   'lr': optimizer.param_groups[0]['lr'], 'acc amount': val_accuracy / params_amount}
+
+        if (epoch in replace_epoch) and epoch != 0: logs['len_choose'] = len_choose
+        else: logs.pop('len_choose', None)
+
+
+        wandb.log(logs)
