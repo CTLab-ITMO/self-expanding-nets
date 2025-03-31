@@ -72,7 +72,6 @@ class EmbedLinear(SparseModule):
         
         mask = torch.tensor(
             [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
-            [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
             device=self.device
         )
 
@@ -189,7 +188,6 @@ class ExpandingLinear(SparseModule):
         
         to_delete = set(zip(children.tolist(), parents.tolist()))
         mask = torch.tensor(
-            [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
             [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
             device=self.device
         )
