@@ -197,8 +197,8 @@ class ExpandingLinear(SparseModule):
         self.weight_values = nn.Parameter(self.weight_values[mask])
         
         
-    def get_non_zero_params(self):
+    def get_non_zero_params(self, epsilon=1e-7):
         last_embed_linear = self.embed_linears[-1]
-        embed_weight_mask = last_embed_linear.weight_values != 0
-        expanding_weight_mask = self.weight_values != 0
+        embed_weight_mask = torch.abs(last_embed_linear.weight_values) > epsilon
+        expanding_weight_mask = torch.abs(self.weight_values) > epsilon
         return embed_weight_mask, expanding_weight_mask
