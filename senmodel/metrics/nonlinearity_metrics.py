@@ -50,7 +50,7 @@ class NonlinearityMetric(ABC):
 
 class AbsGradientEdgeMetric(NonlinearityMetric):
     def calculate(self, model, layer, mask, X_arr, y_arr, embed=False):
-        model = copy.deepcopy(model)
+        # model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
         model.zero_grad()
@@ -65,7 +65,7 @@ class AbsGradientEdgeMetric(NonlinearityMetric):
 
 class ReversedAbsGradientEdgeMetric(NonlinearityMetric):
     def calculate(self, model, layer, mask, X_arr, y_arr, embed=False):
-        model = copy.deepcopy(model)
+        # model = copy.deepcopy(model)
         unfreeze_all(model)
         model.eval()
         model.zero_grad()
