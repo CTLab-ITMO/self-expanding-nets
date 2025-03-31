@@ -154,8 +154,8 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
                 'params to replace amount': replace_params, 'train time': train_time,
                 'params ratio': (params_amount - replace_params) / params_amount,
                 'lr': optimizer.param_groups[0]['lr'], 'acc amount': val_accuracy / params_amount,
-                'n_params / train_time': params_amount / train_time,
-                'train_time / n_params': train_time / params_amount}
+                'n_params over train_time': params_amount / train_time,
+                'train_time over n_params': train_time / params_amount}
 
         if (epoch in replace_epoch) and epoch != 0: logs['len_choose'] = len_choose
         else: logs.pop('len_choose', None)
