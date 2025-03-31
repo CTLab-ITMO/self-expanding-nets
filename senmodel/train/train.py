@@ -119,7 +119,7 @@ def train_sparse_recursive(model, train_loader, val_loader,  test_loader, hyperp
             avg_change = sum(recent_changes) / hyperparams['window_size']
             if avg_change < hyperparams['threshold']:
                 len_choose = 0
-                for layer_name in hyperparams['replace_layers']:
+                for layer_name in hyperparams['choose_thresholds'].keys():
                     layer = model.__getattr__(layer_name)
                     len_choose += edge_replacement_func_new_layer(model, layer, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
                     non_zero_masks[layer_name] = layer.get_non_zero_params()
@@ -128,14 +128,14 @@ def train_sparse_recursive(model, train_loader, val_loader,  test_loader, hyperp
         # елси хотите удаление, то уберите комментарий
         if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
-            for layer_name in hyperparams['replace_layers']:
+            for layer_name in hyperparams['choose_thresholds'].keys():
                 layer = model.__getattr__(layer_name)
                 len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef, efg)
             
         
         params_amount = get_params_amount(model)
         replace_params = 0
-        for layer_name in hyperparams['replace_layers']:
+        for layer_name in hyperparams['choose_thresholds'].keys():
             layer = model.__getattr__(layer_name)
             
             replace_params += len(ef.choose_edges_threshold(model, layer, hyperparams['choose_thresholds'][layer_name])[0])
