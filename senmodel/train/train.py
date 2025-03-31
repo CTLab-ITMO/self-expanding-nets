@@ -75,7 +75,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
         
-        if epoch - replace_epoch[-1] > min(hyperparams['delete_after'], hyperparams['min_delta_epoch_replace'], hyperparams['window_size']):
+        if epoch - replace_epoch[-1] > max(hyperparams['delete_after'], hyperparams['min_delta_epoch_replace'], hyperparams['window_size']):
             recent_changes = [abs(val_losses[i] - val_losses[i - 1]) for i in range(-hyperparams['window_size'], 0)]
             avg_change = sum(recent_changes) / hyperparams['window_size']
             if avg_change < hyperparams['threshold']:
@@ -89,13 +89,13 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
                 replace_epoch += [epoch]
 
         # елси хотите удаление, то уберите комментарий
-        if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
-            len_choose = 0
-            for layer_name in hyperparams['replace_layers']:
-                layer = model.__getattr__(layer_name)
-                mask = torch.ones_like(layer.weight_values, dtype=bool)
-                len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef)
-            wandb.log({'del_len_choose': len_choose})
+        # if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
+        #     len_choose = 0
+        #     for layer_name in hyperparams['replace_layers']:
+        #         layer = model.__getattr__(layer_name)
+        #         mask = torch.ones_like(layer.weight_values, dtype=bool)
+        #         len_choose += edge_deletion_func_new_layer(model, layer, hyperparams['choose_thresholds'][layer_name], ef)
+        #     wandb.log({'del_len_choose': len_choose})
         
         params_amount = get_params_amount(model)
         replace_params = 0
