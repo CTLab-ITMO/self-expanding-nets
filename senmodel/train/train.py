@@ -64,7 +64,7 @@ def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef, efg):
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
 
-def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
+def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     criterion = nn.CrossEntropyLoss()
     ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
@@ -74,7 +74,7 @@ def train_sparse_recursive(model, train_loader, val_loader, hyperparams):
     val_losses = []
     for epoch in range(hyperparams['num_epochs']):
         train_loss, train_time = train_one_epoch(model, optimizer, criterion, train_loader)
-        val_loss, val_accuracy = eval_one_epoch(model, criterion, val_loader)
+        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader)
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
