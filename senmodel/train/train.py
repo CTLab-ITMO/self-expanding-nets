@@ -64,9 +64,8 @@ def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef, efg):
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
 
-def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperparams):
+def train_sparse_recursive(model, train_loader, val_loader, test_loader, criterion, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
-    criterion = nn.CrossEntropyLoss()
     ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
     efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
 
@@ -88,7 +87,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
                 for layer_name in hyperparams['replace_layers']:
                     layer = model.__getattr__(layer_name)
                     mask = torch.ones_like(layer.weight_values, dtype=bool)
-                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef, efg)
+                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
 
                 replace_epoch += [epoch]
 
