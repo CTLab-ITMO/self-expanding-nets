@@ -1,6 +1,6 @@
 import time
 from tqdm import tqdm
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, mean_squared_error
 from senmodel.metrics.nonlinearity_metrics import AbsGradientEdgeMetric
 from senmodel.model.utils import *
 import torch.optim as optim
@@ -26,7 +26,21 @@ def train_one_epoch(model, optimizer, criterion, train_loader):
     return train_loss, train_time
 
 
-def eval_one_epoch(model, criterion, val_loader):
+def eval_one_epoch(model, criterion, val_loader, task_type):
+    '''
+    Args:
+        model (torch.nn.Module)
+        criterion (torch.nn.Module)
+        val_loader (torch.utils.data.DataLoader)
+        task_type (str): 'regression' or 'classification'.
+
+    Returns:
+        tuple: A tuple containing:
+            - val_loss (float): Average loss over the validation set.
+            - val_accuracy (float) / MSE (float): Accuracy score for classification tasks,
+                                   or MSE for regression tasks.
+    '''
+
     model.eval()
     val_loss = 0
     all_targets = []
@@ -36,48 +50,56 @@ def eval_one_epoch(model, criterion, val_loader):
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             val_loss += loss.item()
-            preds = torch.argmax(outputs, dim=1)
+
+            if task_type == 'classification': preds = torch.argmax(outputs, dim=1)
+            else: preds = outputs
+
             all_targets.extend(targets.cpu().numpy())
             all_preds.extend(preds.cpu().numpy())
     val_loss /= len(val_loader)
-    val_accuracy = accuracy_score(all_targets, all_preds)
-    return val_loss, val_accuracy
+
+    if task_type == 'classification': metric = accuracy_score(all_targets, all_preds)
+    else: metric = mean_squared_error(all_targets, all_preds)
+
+    return val_loss, metric
 
 
-def edge_replacement_func_new_layer(model, layer, masks, optim, choose_threshold, ef):
-    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, masks)
+def edge_replacement_func_new_layer(model, layer, mask, optim, choose_threshold, ef):
+    chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold, mask)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
     layer.replace_many(*chosen_edges)
+
+    
+    
     if len(chosen_edges[0]) > 0:
         optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
         optim.add_param_group({'params': layer.weight_values})
     return len(chosen_edges[0])
 
 
-def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef):
+def edge_deletion_func_new_layer(model, layer,  choose_threshold, ef, efg):
     chosen_edges = ef.choose_edges_threshold(model=model, layer=layer, threshold=choose_threshold, layer_mask=None, embed=True)
+    
     print("Chosen edges to del:", chosen_edges, len(chosen_edges[0]))
     layer.delete_many(*chosen_edges)
     return len(chosen_edges[0])
 
-
 def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperparams):
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
-    criterion = nn.CrossEntropyLoss()
     ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
-    # efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
+    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
 
     replace_epoch = [0]
     val_losses = []
     for epoch in range(hyperparams['num_epochs']):
         train_loss, train_time = train_one_epoch(model, optimizer, criterion, train_loader)
-        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader)
+        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader, hyperparams['task_type'])
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
         
-        if epoch - replace_epoch[-1] > min(hyperparams['delete_after'], hyperparams['min_delta_epoch_replace'], hyperparams['window_size']):
+        if epoch - replace_epoch[-1] > max(hyperparams['delete_after'], hyperparams['min_delta_epoch_replace'], hyperparams['window_size']):
             recent_changes = [abs(val_losses[i] - val_losses[i - 1]) for i in range(-hyperparams['window_size'], 0)]
             avg_change = sum(recent_changes) / hyperparams['window_size']
             if avg_change < hyperparams['threshold']:
@@ -85,11 +107,11 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
                 for layer_name in hyperparams['replace_layers']:
                     layer = model.__getattr__(layer_name)
                     mask = torch.ones_like(layer.weight_values, dtype=bool)
-                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
+                    len_choose += edge_replacement_func_new_layer(model, layer, mask, optimizer, hyperparams['choose_thresholds'][layer_name], ef, efg)
 
                 replace_epoch += [epoch]
 
-        # если хотите удаление, то уберите комментарий
+        # елси хотите удаление, то уберите комментарий
         if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
             for layer_name in hyperparams['replace_layers']:
@@ -113,9 +135,8 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, hyperpa
                 'n_params / train_time': params_amount / train_time,
                 'train_time / n_params': train_time / params_amount}
 
-        if (epoch in replace_epoch) and epoch != 0: 
-            logs['len_choose'] = len_choose
-        else: 
-            logs.pop('len_choose', None)
+        if (epoch in replace_epoch) and epoch != 0: logs['len_choose'] = len_choose
+        else: logs.pop('len_choose', None)
+
 
         wandb.log(logs)
