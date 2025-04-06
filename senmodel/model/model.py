@@ -71,7 +71,7 @@ class EmbedLinear(SparseModule):
         to_delete = set(zip(children.tolist(), parents.tolist()))
         
         mask = torch.tensor(
-            [(child, parent) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
+            [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
             device=self.device
         )
 
@@ -187,18 +187,18 @@ class ExpandingLinear(SparseModule):
         children, parents = exp_pairs
         
         to_delete = set(zip(children.tolist(), parents.tolist()))
-        
         mask = torch.tensor(
-            [(child, parent) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
+            [(child.item(), parent.item()) not in to_delete for child, parent in zip(self.weight_indices[0], self.weight_indices[1])],
             device=self.device
         )
-
+        
+        
         self.weight_indices = self.weight_indices[:, mask]
         self.weight_values = nn.Parameter(self.weight_values[mask])
         
         
-    def get_non_zero_params(self):
+    def get_non_zero_params(self, epsilon=1e-7):
         last_embed_linear = self.embed_linears[-1]
-        embed_weight_mask = last_embed_linear.weight_values != 0
-        expanding_weight_mask = self.weight_values != 0
+        embed_weight_mask = torch.abs(last_embed_linear.weight_values) > epsilon
+        expanding_weight_mask = torch.abs(self.weight_values) > epsilon
         return embed_weight_mask, expanding_weight_mask

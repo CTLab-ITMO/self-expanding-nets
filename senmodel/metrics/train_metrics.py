@@ -20,7 +20,7 @@ def get_zero_params_amount(model, eps=1e-8):
                 amount += linear.weight_values[linear.weight_values.abs() < eps].shape[0]
             amount += layer.weight_values[layer.weight_values.abs() < eps].shape[0]
         elif isinstance(layer, nn.Linear):
-            amount += linear.weight[linear.weight.abs() < eps].numel()
+            amount += layer.weight[layer.weight.abs() < eps].numel()
     return amount
 
 
