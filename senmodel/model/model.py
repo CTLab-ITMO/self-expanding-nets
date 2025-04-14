@@ -134,10 +134,10 @@ class ExpandingLinear(SparseModule):
             
         has_embed = len(self.embed_linears) != 0
         
-        super().replace_many(children, parents)
         
         all_parents = torch.unique(self.embed_linears.weight_indices[1] if has_embed else self.weight_indices[1]).long()
         
+        super().replace_many(children, all_parents)
         self.embed_linears[self.current_iteration].make_linear(children, all_parents)
 
     def freeze_embeds(self, len_choose):
