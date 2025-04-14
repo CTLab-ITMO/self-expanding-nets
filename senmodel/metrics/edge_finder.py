@@ -5,24 +5,38 @@ from ..model.utils import get_model_last_layer
 
 
 class EdgeFinder:
-    def __init__(self, metric: NonlinearityMetric, dataloader, device=torch.device('cpu'), aggregation_mode='mean'):
+    def __init__(
+        self,
+        metric: NonlinearityMetric,
+        dataloader,
+        device=torch.device("cpu"),
+        aggregation_mode="mean",
+        threshold=0.15,
+        max_to_choose=None,
+    ):
         self.metric = metric
         self.dataloader = dataloader
         self.device = device
         self.aggregation_mode = aggregation_mode
-        assert aggregation_mode in ['mean', 'variance'], "Aggregation mode must be 'mean' or 'variance'."
+        assert aggregation_mode in [
+            "mean",
+            "variance",
+        ], "Aggregation mode must be 'mean' or 'variance'."
+        
+        self.threshold = threshold
+        self.max_to_choose = max_to_choose
 
-    def calculate_edge_metric_for_dataloader(self, model, layer, to_normalise=True, embed=False):
-        if self.aggregation_mode == 'mean':
+    def calculate_edge_metric_for_dataloader(self, model, layer, embed=False):
+        if self.aggregation_mode == "mean":
             accumulated = None
             for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
-                metric = self.metric.calculate(model, layer, data, target, embed) 
+                metric = self.metric.calculate(model, layer, data, target, embed)
                 if accumulated is None:
                     accumulated = torch.zeros_like(metric).to(self.device)
                 accumulated += metric
             aggregated = accumulated / len(self.dataloader)
-        elif self.aggregation_mode == 'variance':
+        elif self.aggregation_mode == "variance":
             sum_ = None
             sum_sq = None
             n = len(self.dataloader)
@@ -39,34 +53,22 @@ class EdgeFinder:
         else:
             raise ValueError(f"Unsupported aggregation mode: {self.aggregation_mode}")
 
-        if not to_normalise or aggregated.numel() == 0:
-            return aggregated
+        return aggregated
 
+    def choose_edges(self, model, layer, embed=False, max_limit=False):
+        values = self.calculate_edge_metric_for_dataloader(
+            model=model, layer=layer, embed=embed
+        )
 
-        min_val = aggregated.min()
-        max_val = aggregated.max()
-        normalized = (aggregated - min_val) / (max_val - min_val + 1e-8)
-        return normalized
+        norm_values = (values - values.min()) / (values.max() - values.min())
+        
+        mask = norm_values <= self.threshold
+        
+        final_indices = torch.nonzero(mask).squeeze()
 
-    # def choose_edges_top_k(self, model, top_k: int, len_choose: int = None):
-    #     assert top_k > 0
-    #     avg_metric = self.calculate_edge_metric_for_dataloader(model, len_choose)
-    #     sorted_indices = torch.argsort(avg_metric, descending=True)
-    #     last_layer = get_model_last_layer(model)
-    #     return last_layer.weight_indices[:, sorted_indices[:top_k]]
+        if max_limit and self.max_to_choose is not None:
+            final_indices = final_indices[:self.max_to_choose]
 
-    # def choose_edges_top_percent(self, model, percent: float, len_choose: int = None):
-    #     assert 0 < percent <= 1
-    #     avg_metric = self.calculate_edge_metric_for_dataloader(model, len_choose)
-    #     k = int(percent * avg_metric.numel())
-    #     sorted_indices = torch.argsort(avg_metric, descending=True)
-    #     last_layer = get_model_last_layer(model)
-    #     return last_layer.weight_indices[:, sorted_indices[:k]]
+        res = layer.weight_indices[:, final_indices]
 
-    def choose_edges_threshold(self, model, layer, threshold, embed=False):
-        assert 0 < threshold <= 1
-        avg_metric = self.calculate_edge_metric_for_dataloader(model=model, layer=layer, to_normalise=True, embed=embed)
-        mask = avg_metric > threshold
-        res = layer.weight_indices[:, mask.nonzero(as_tuple=True)[0]]
-        # print("shapes", layer.weight_values.shape, res.shape)
         return res
