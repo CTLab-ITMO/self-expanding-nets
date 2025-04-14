@@ -53,6 +53,7 @@ class EmbedLinear(SparseModule):
         for idx, (parent, child) in enumerate(zip(parents, range(num_edges))):
             self.add_edge(child, parent, original_weight=1)
             done[idx] = (child, parent)
+
         done_set = set(done)
         unique_parents = torch.unique(parents)
         for i in range(children.shape[0]):
@@ -130,9 +131,14 @@ class ExpandingLinear(SparseModule):
         
         if len(children) and len(parents):
             self.current_iteration += 1
+            
+        has_embed = len(self.embed_linears) != 0
         
         super().replace_many(children, parents)
-        self.embed_linears[self.current_iteration].make_linear(children, parents)
+        
+        all_parents = torch.unique(self.embed_linears.weight_indices[1] if has_embed else self.weight_indices[1]).long()
+        
+        self.embed_linears[self.current_iteration].make_linear(children, all_parents)
 
     def freeze_embeds(self, len_choose):
         # freeze_all_but_last
