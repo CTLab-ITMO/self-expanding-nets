@@ -64,10 +64,10 @@ def eval_one_epoch(model, criterion, val_loader, task_type):
     return val_loss, metric
 
 
-def edge_replacement_func_new_layer(model, layer, optim, choose_threshold, ef):
+def edge_replacement_func_new_layer(model, layer, optim, choose_threshold, ef, fully_connected=False):
     chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
-    layer.replace_many(*chosen_edges)
+    layer.replace_many(*chosen_edges, fully_connected)
     
     if len(chosen_edges[0]) > 0:
         optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
@@ -140,7 +140,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
                 len_choose = 0
                 for layer_name in hyperparams['choose_thresholds'].keys():
                     layer = model.__getattr__(layer_name)
-                    len_choose += edge_replacement_func_new_layer(model, layer, optimizer, hyperparams['choose_thresholds'][layer_name], ef)
+                    len_choose += edge_replacement_func_new_layer(model, layer, optimizer, hyperparams['choose_thresholds'][layer_name], ef, hyperparams['fully_connected'])
                     non_zero_masks[layer_name] = layer.get_non_zero_params()
                 replace_epoch += [epoch]
 

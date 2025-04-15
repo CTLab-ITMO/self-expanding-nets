@@ -125,20 +125,19 @@ class ExpandingLinear(SparseModule):
         self.weight_size[1] += 1
         # self.embed_linears[self.current_iteration].replace(child, parent)
 
-    def replace_many(self, children, parents):
+    def replace_many(self, children, parents, fully_connected=False):
         replaced_count = len(children)  
         self.count_replaces.append(replaced_count)
         
         if len(children) and len(parents):
             self.current_iteration += 1
-            
-        has_embed = len(self.embed_linears) != 0
         
+        if (fully_connected):
+            has_embed = len(self.embed_linears) != 0
+            parents = torch.unique(self.embed_linears[-1].weight_indices[1] if has_embed else self.weight_indices[1]).long()
         
-        all_parents = torch.unique(self.embed_linears[-1].weight_indices[1] if has_embed else self.weight_indices[1]).long()
-        
-        super().replace_many(children, all_parents)
-        self.embed_linears[self.current_iteration].make_linear(children, all_parents)
+        super().replace_many(children, parents)
+        self.embed_linears[self.current_iteration].make_linear(children, parents)
 
     def freeze_embeds(self, len_choose):
         # freeze_all_but_last
