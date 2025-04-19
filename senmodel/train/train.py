@@ -9,11 +9,12 @@ from senmodel.metrics.edge_finder import *
 import wandb
 
 
-def train_one_epoch(model, optimizer, criterion, train_loader):
+def train_one_epoch(model, optimizer, criterion, train_loader, device):
     t0 = time.time()
     model.train()
     train_loss = 0
     for i, (inputs, targets) in enumerate(tqdm(train_loader)):
+        inputs, targets = inputs.to(device), targets.to(device)
         outputs = model(inputs)
         loss = criterion(outputs, targets)
         optimizer.zero_grad()
@@ -26,7 +27,7 @@ def train_one_epoch(model, optimizer, criterion, train_loader):
     return train_loss, train_time
 
 
-def eval_one_epoch(model, criterion, val_loader, task_type):
+def eval_one_epoch(model, criterion, val_loader, task_type, device):
     '''
     Args:
         model (torch.nn.Module)
@@ -47,6 +48,7 @@ def eval_one_epoch(model, criterion, val_loader, task_type):
     all_preds = []
     with torch.no_grad():
         for inputs, targets in val_loader:
+            inputs, targets = inputs.to(device), targets.to(device)
             outputs = model(inputs)
             loss = criterion(outputs, targets)
             val_loss += loss.item()
@@ -116,18 +118,23 @@ def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, e
 
     return len(chosen_edges_emb[0]) + len(chosen_edges_exp[0])
 
-def train_sparse_recursive(model, train_loader, val_loader, test_loader, criterion, hyperparams):
+def train_sparse_recursive(model, train_loader, val_loader, test_loader, criterion, hyperparams, device):
+    
+    model = model.to(device)
+    
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
-    ef = EdgeFinder(hyperparams['metric'], val_loader, aggregation_mode='mean')
-    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, aggregation_mode='mean')
+    
+    ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode='mean')
+    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, device=device, aggregation_mode='mean')
 
     non_zero_masks = {}
 
     replace_epoch = [0]
     val_losses = []
     for epoch in range(hyperparams['num_epochs']):
-        train_loss, train_time = train_one_epoch(model, optimizer, criterion, train_loader)
-        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader, hyperparams['task_type'])
+        train_loss, train_time = train_one_epoch(model, optimizer, criterion, train_loader, device)
+        val_loss, val_accuracy = eval_one_epoch(model, criterion, test_loader, hyperparams['task_type'], device)
+
         val_losses.append(val_loss)
 
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
