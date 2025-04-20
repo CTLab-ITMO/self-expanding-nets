@@ -5,24 +5,37 @@ from ..model.utils import get_model_last_layer
 
 
 class EdgeFinder:
-    def __init__(self, metric: NonlinearityMetric, dataloader, device=torch.device('cpu'), aggregation_mode='mean'):
+    def __init__(
+        self,
+        metric: NonlinearityMetric,
+        dataloader,
+        device=torch.device("cpu"),
+        aggregation_mode="mean",
+        max_to_replace=None,
+    ):
+        self.max_to_replace = max_to_replace
         self.metric = metric
         self.dataloader = dataloader
         self.device = device
         self.aggregation_mode = aggregation_mode
-        assert aggregation_mode in ['mean', 'variance'], "Aggregation mode must be 'mean' or 'variance'."
+        assert aggregation_mode in [
+            "mean",
+            "variance",
+        ], "Aggregation mode must be 'mean' or 'variance'."
 
-    def calculate_edge_metric_for_dataloader(self, model, layer, to_normalise=True, embed=False):
-        if self.aggregation_mode == 'mean':
+    def calculate_edge_metric_for_dataloader(
+        self, model, layer, to_normalise=True, embed=False
+    ):
+        if self.aggregation_mode == "mean":
             accumulated = None
             for data, target in self.dataloader:
                 data, target = data.to(self.device), target.to(self.device)
-                metric = self.metric.calculate(model, layer, data, target, embed) 
+                metric = self.metric.calculate(model, layer, data, target, embed)
                 if accumulated is None:
                     accumulated = torch.zeros_like(metric).to(self.device)
                 accumulated += metric
             aggregated = accumulated / len(self.dataloader)
-        elif self.aggregation_mode == 'variance':
+        elif self.aggregation_mode == "variance":
             sum_ = None
             sum_sq = None
             n = len(self.dataloader)
@@ -41,7 +54,6 @@ class EdgeFinder:
 
         if not to_normalise or aggregated.numel() == 0:
             return aggregated
-
 
         min_val = aggregated.min()
         max_val = aggregated.max()
@@ -65,8 +77,17 @@ class EdgeFinder:
 
     def choose_edges_threshold(self, model, layer, threshold, embed=False):
         assert 0 < threshold <= 1
-        avg_metric = self.calculate_edge_metric_for_dataloader(model=model, layer=layer, to_normalise=True, embed=embed)
+        avg_metric = self.calculate_edge_metric_for_dataloader(
+            model=model, layer=layer, to_normalise=True, embed=embed
+        )
         mask = avg_metric > threshold
         res = layer.weight_indices[:, mask.nonzero(as_tuple=True)[0]]
-        # print("shapes", layer.weight_values.shape, res.shape)
+
+        if (
+            self.max_to_replace is not None
+            and self.max_to_replace > 0
+            and len(res[0]) > self.max_to_replace
+        ):
+            sorted_indices = torch.argsort(avg_metric[mask], descending=True)
+            res = res[:, sorted_indices[: self.max_to_replace]]
         return res

@@ -77,7 +77,7 @@ def edge_replacement_func_new_layer(model, layer, optim, choose_threshold, ef, f
     return len(chosen_edges[0])
 
 
-def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, ef, efg):
+def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, ef):
     
     metr_edges_emb = ef.calculate_edge_metric_for_dataloader(model=model, layer=layer,  to_normalise=False, embed=True)
     metr_edges_exp = ef.calculate_edge_metric_for_dataloader(model=model, layer=layer, to_normalise=False, embed=False)
@@ -124,8 +124,8 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
     
     optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     
-    ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode='mean')
-    efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, device=device, aggregation_mode='mean')
+    ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode='mean', max_to_replace=hyperparams['max_to_replace'])
+    # efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, device=device, aggregation_mode='mean')
 
     non_zero_masks = {}
 
@@ -151,12 +151,12 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
                     non_zero_masks[layer_name] = layer.get_non_zero_params()
                 replace_epoch += [epoch]
 
-        # елси хотите удаление, то уберите комментарий
+
         if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
             for layer_name in hyperparams['choose_thresholds'].keys():
                 layer = model.__getattr__(layer_name)
-                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef, efg)
+                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef)
             
         
         params_amount = get_params_amount(model)
