@@ -90,7 +90,7 @@ def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, e
     max_val = combined_metrics.max()
     normalized = (combined_metrics - min_val) / (max_val - min_val + 1e-8)
     
-    mask = normalized < 0.1
+    mask = normalized < choose_threshold
     print("mask", mask.shape)
     print(mask.sum())
 
@@ -154,9 +154,9 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
 
         if epoch - replace_epoch[-1] == hyperparams['delete_after'] and replace_epoch[-1] != 0:
             len_choose = 0
-            for layer_name in hyperparams['choose_thresholds'].keys():
+            for layer_name in hyperparams["choose_thresholds_del"].keys():
                 layer = model.__getattr__(layer_name)
-                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams['choose_thresholds'][layer_name], ef)
+                len_choose += edge_deletion_func_new_layer(model, layer, optimizer, non_zero_masks[layer_name], hyperparams["choose_thresholds_del"][layer_name], ef)
             
         
         params_amount = get_params_amount(model)
