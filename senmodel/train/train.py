@@ -70,9 +70,12 @@ def edge_replacement_func_new_layer(model, layer, optim, choose_threshold, ef, f
     chosen_edges = ef.choose_edges_threshold(model, layer, choose_threshold)
     print("Chosen edges:", chosen_edges, len(chosen_edges[0]))
     layer.replace_many(*chosen_edges, fully_connected)
-    
+
     if len(chosen_edges[0]) > 0:
-        optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
+        optim.param_groups.clear() 
+        optim.state.clear()
+        for i in range(len(layer.embed_linears)):
+            optim.add_param_group({'params': layer.embed_linears[i].weight_values})
         optim.add_param_group({'params': layer.weight_values})
     return len(chosen_edges[0])
 
@@ -112,7 +115,10 @@ def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, e
     
     layer.delete_many(chosen_edges_emb, chosen_edges_exp)
 
-    optim.add_param_group({'params': layer.embed_linears[-1].weight_values})
+    optim.param_groups.clear()
+    optim.state.clear()
+    for i in range(len(layer.embed_linears)):
+        optim.add_param_group({'params': layer.embed_linears[i].weight_values})
     optim.add_param_group({'params': layer.weight_values})
 
 
