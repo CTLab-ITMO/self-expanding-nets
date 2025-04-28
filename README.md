@@ -4,7 +4,7 @@
 
 ```shell
 !rm -rf self-expanding-nets
-!git clone https://github.com/CTLab-ITMO/self-expanding-nets -b multi-layer-replace
+!git clone https://github.com/CTLab-ITMO/self-expanding-nets 
 %pip uninstall senmodel
 %pip install -U -e ./self-expanding-nets/
 ```
