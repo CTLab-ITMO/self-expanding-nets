@@ -14,3 +14,7 @@ or just
 ```shell
 %pip install -U -e .
 ```
+
+## Experiments
+our reproducible experiments:
+- [MNIST](https://colab.research.google.com/drive/1oeLnB_yudncUJFEMEM4lhDAbH3Mf6SZL?usp=sharing)
