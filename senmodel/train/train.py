@@ -124,11 +124,9 @@ def edge_deletion_func_new_layer(model, layer, optim, masks, choose_threshold, e
 
     return len(chosen_edges_emb[0]) + len(chosen_edges_exp[0])
 
-def train_sparse_recursive(model, train_loader, val_loader, test_loader, criterion, hyperparams, device):
+def train_sparse_recursive(model, train_loader, val_loader, test_loader, criterion, optimizer, hyperparams, device):
     
     model = model.to(device)
-    
-    optimizer = optim.Adam(model.parameters(), lr=hyperparams['lr'])
     
     ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode='mean', max_to_replace=hyperparams['max_to_replace'])
     # efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, device=device, aggregation_mode='mean')
@@ -146,6 +144,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
         print(f"Epoch {epoch + 1}/{hyperparams['num_epochs']}, Train Loss: {train_loss:.4f}, "
               f"Val Loss: {val_loss:.4f}, Val Accuracy: {val_accuracy:.4f}")
         
+        # todo check, maybe need min(max(min_delt, wind_size), del_after) or something like that 
         if epoch - replace_epoch[-1] > max(hyperparams['delete_after'], hyperparams['min_delta_epoch_replace'], hyperparams['window_size']):
             recent_changes = [abs(val_losses[i] - val_losses[i - 1]) for i in range(-hyperparams['window_size'], 0)]
             avg_change = sum(recent_changes) / hyperparams['window_size']
