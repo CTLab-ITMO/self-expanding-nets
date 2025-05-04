@@ -19,3 +19,4 @@ or just
 our reproducible experiments:
 - [MNIST](https://colab.research.google.com/drive/1oeLnB_yudncUJFEMEM4lhDAbH3Mf6SZL?usp=sharing)
 - [Gutenberg](https://colab.research.google.com/drive/1QtEhq8b_p4HR6aRlvaxHG5suqs5o_gzp?usp=sharing)
+- [MultNIST](https://colab.research.google.com/drive/1vGSCg5Tn9kiq17rPtIkUT3vG2vOK-cqO?usp=sharing)
