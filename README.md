@@ -12,7 +12,7 @@
 or just
 
 ```shell
-%pip install -U -e .
+%pip install -U -e ./self-expanding-nets/
 ```
 
 ## Experiments
