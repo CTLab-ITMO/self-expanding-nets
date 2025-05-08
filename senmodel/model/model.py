@@ -3,6 +3,7 @@ from abc import abstractmethod, ABC
 import torch
 from torch import nn
 from random import random
+random.seed(0)
 
 
 class SparseModule(ABC, nn.Module):
