@@ -2,8 +2,6 @@ from abc import abstractmethod, ABC
 
 import torch
 from torch import nn
-import random
-random.seed(0)
 
 
 class SparseModule(ABC, nn.Module):
@@ -60,7 +58,8 @@ class EmbedLinear(SparseModule):
         for i in range(children.shape[0]):
             for j, parent in enumerate(unique_parents):
                 if (i, parent) not in done_set: 
-                    self.add_edge(i, parent, original_weight=ramdom.random() / 1e8)
+                    random_weight = torch.rand(1).item() / 1e8
+                    self.add_edge(i, parent, original_weight=random_weight)
         self.weight_size[0] = children.shape[0]
 
     def forward(self, input):
@@ -120,7 +119,8 @@ class ExpandingLinear(SparseModule):
         max_parent = self.weight_indices[1].max().item() + 1
         
         for ch in torch.unique(self.weight_indices[0]):
-            w = random.random() / 1e8 if ch != child else original_weight
+            random_weight = torch.rand(1).item() / 1e8
+            w = random_weight if ch != child else original_weight
             self.add_edge(ch, max_parent, w)
             
         self.weight_size[1] += 1
