@@ -51,13 +51,12 @@ class EmbedLinear(SparseModule):
 
         for idx, (parent, child) in enumerate(zip(parents, range(num_edges))):
             self.add_edge(child, parent, original_weight=1)
-            done[idx] = (child, parent)
+            done[idx] = (child, parent.item())
 
-        done_set = set(done)
         unique_parents = torch.unique(parents)
         for i in range(children.shape[0]):
             for j, parent in enumerate(unique_parents):
-                if (i, parent) not in done_set: 
+                if (i, parent.item()) not in done: 
                     random_weight = torch.rand(1).item() / 1e8
                     self.add_edge(i, parent, original_weight=random_weight)
         self.weight_size[0] = children.shape[0]
