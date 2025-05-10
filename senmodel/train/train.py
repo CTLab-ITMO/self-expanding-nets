@@ -128,7 +128,7 @@ def train_sparse_recursive(model, train_loader, val_loader, test_loader, criteri
     
     model = model.to(device)
     
-    ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode='mean', max_to_replace=hyperparams['max_to_replace'])
+    ef = EdgeFinder(hyperparams['metric'], val_loader, device=device, aggregation_mode=hyperparams['aggregation_mode'], max_to_replace=hyperparams['max_to_replace'])
     # efg = EdgeFinder(AbsGradientEdgeMetric, val_loader, device=device, aggregation_mode='mean')
 
     non_zero_masks = {}
