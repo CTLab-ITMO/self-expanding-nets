@@ -28,6 +28,9 @@ class SparseModule(ABC, nn.Module):
     @abstractmethod
     def replace(self, child, parent):
         pass
+    
+    def epsilon(self):
+        return (torch.rand(1).item() - 0.5) * 2e-8
 
     def replace_many(self, children, parents):
         for c, p in zip(children, parents):
@@ -57,7 +60,7 @@ class EmbedLinear(SparseModule):
         for i in range(children.shape[0]):
             for j, parent in enumerate(unique_parents):
                 if (i, parent.item()) not in done: 
-                    random_weight = torch.rand(1).item() / 1e8
+                    random_weight = self.epsilon()
                     self.add_edge(i, parent, original_weight=random_weight)
         self.weight_size[0] = children.shape[0]
 
@@ -118,7 +121,7 @@ class ExpandingLinear(SparseModule):
         max_parent = self.weight_indices[1].max().item() + 1
         
         for ch in torch.unique(self.weight_indices[0]):
-            random_weight = torch.rand(1).item() / 1e8
+            random_weight = self.epsilon()
             w = random_weight if ch != child else original_weight
             self.add_edge(ch, max_parent, w)
             
