@@ -30,7 +30,7 @@ class SparseModule(ABC, nn.Module):
         pass
     
     def epsilon(self):
-        return (torch.rand(1).item() - 0.5) * 2e-8
+        return torch.rand(1).item() * 1e-8
 
     def replace_many(self, children, parents):
         for c, p in zip(children, parents):
